@@ -1,0 +1,73 @@
+package org.jeecg.modules.doctor.util;
+
+public enum InterfaceInfo {
+    CHECK_PROJECTS("/msun-middle-business-lis/v1/lis-applies/items", "LIS检查项目查询","get"),
+    DEPARTMENTS_AND_OFFICES("/msun-middle-base-common/v1/depts", "科室信息","get"),
+    PERSON_SEARCH("/msun-middle-aggregate-patient/v1/pat-infos/10353", "档案查询","get"),
+    PERSON_CREATE("/msun-middle-aggregate-patient/v1/pat-infos/patients", "创建档案","post"),
+
+    ;
+    // url 复制
+    private String url;
+    // 接口备注
+    private String remark;
+    // 接口备注
+    private String requestType;
+    // 预留数值字段
+    private String code;
+
+    InterfaceInfo(String url) {
+        this.url = url;
+    }
+
+    InterfaceInfo(String url, String remark) {
+        this.url = url;
+        this.remark = remark;
+    }
+
+    InterfaceInfo(String url, String remark, String requestType) {
+        this.url = url;
+        this.remark = remark;
+        this.requestType = requestType;
+    }
+    InterfaceInfo(String url, String remark,String requestType, String code) {
+        this.url = url;
+        this.remark = remark;
+        this.requestType = requestType;
+        this.code = code;
+    }
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
+    }
+
+    public String getRemark() {
+        return remark;
+    }
+
+    public void setRemark(String remark) {
+        this.remark = remark;
+    }
+
+    public String getRequestType() {
+        return requestType;
+    }
+
+    public void setRequestType(String requestType) {
+        this.requestType = requestType;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+
+}
