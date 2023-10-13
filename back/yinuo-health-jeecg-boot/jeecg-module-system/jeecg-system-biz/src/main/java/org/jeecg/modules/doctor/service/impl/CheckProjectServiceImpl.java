@@ -538,12 +538,15 @@ public class CheckProjectServiceImpl extends ServiceImpl<CheckProjectMapper, Che
             if (JSONUtil.isJson(res)) {
                 // 将 json 字符串 解析为 实体类
                 response = JSONUtil.toBean(res, CheckProjectResponse.class);
+                if (!response.getSuccess()){
+                    return Result.error("接口请求失败！" + response.getMessage());
+                }
             }
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }
         // 判断返回信息是否为空
-        if (BeanUtil.isEmpty(response)) {
+        if (BeanUtil.isEmpty(response)||CollUtil.isEmpty(response.getData())) {
             return Result.error("接口返回数据为空，维护失败！");
         }
         // 请求返回的主表数据

@@ -9,6 +9,11 @@ export const columns: BasicColumn[] = [
         sorter: true
     },
     {
+        title: '患者id',
+        align: "center",
+        dataIndex: 'patId'
+    },
+    {
         title: '体检时间',
         align: "center",
         dataIndex: 'peDate'
@@ -58,6 +63,12 @@ export const searchFormSchema: FormSchema[] = [
         colProps: {span: 6},
     },
     {
+        label: "患者ID",
+        field: 'patId',
+        component: 'Input',
+        colProps: {span: 6},
+    },
+    {
         label: "体检日期",
         field: "peDate",
         component: 'RangePicker',
@@ -103,6 +114,11 @@ export const formSchema: FormSchema[] = [
                 {required: true, message: '请输入patientNo!'},
             ];
         },
+    },
+    {
+        label: '患者 id',
+        field: 'patId',
+        component: 'Input',
     },
     {
         label: 'peDate',

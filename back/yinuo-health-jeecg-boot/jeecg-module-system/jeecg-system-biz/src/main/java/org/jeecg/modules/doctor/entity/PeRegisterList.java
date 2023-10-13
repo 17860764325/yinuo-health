@@ -312,4 +312,9 @@ public class PeRegisterList implements Serializable {
 	@Excel(name = "isSuccess", width = 15)
     @ApiModelProperty(value = "isSuccess")
     private Integer isSuccess;
+
+    /**众阳系统的患者 id*/
+	@Excel(name = "patId", width = 15)
+    @ApiModelProperty(value = "patId")
+    private String patId;
 }

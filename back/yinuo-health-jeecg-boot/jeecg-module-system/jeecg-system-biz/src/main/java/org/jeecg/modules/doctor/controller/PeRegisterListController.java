@@ -2,18 +2,11 @@ package org.jeecg.modules.doctor.controller;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.system.query.QueryGenerator;
-import org.jeecg.common.util.oConvertUtils;
 import org.jeecg.modules.doctor.entity.PeRegisterList;
-import org.jeecg.modules.doctor.entity.VO.BaseRequestEntity;
 import org.jeecg.modules.doctor.service.IPeRegisterListService;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -21,18 +14,10 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 
-import org.jeecgframework.poi.excel.ExcelImportUtil;
-import org.jeecgframework.poi.excel.def.NormalExcelConstants;
-import org.jeecgframework.poi.excel.entity.ExportParams;
-import org.jeecgframework.poi.excel.entity.ImportParams;
-import org.jeecgframework.poi.excel.view.JeecgEntityExcelView;
 import org.jeecg.common.system.base.controller.JeecgController;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.servlet.ModelAndView;
-import com.alibaba.fastjson.JSON;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.jeecg.common.aspect.annotation.AutoLog;
@@ -70,6 +55,9 @@ public class PeRegisterListController extends JeecgController<PeRegisterList, IP
 								   HttpServletRequest req) {
 		QueryWrapper<PeRegisterList> queryWrapper = QueryGenerator.initQueryWrapper(peRegisterList, req.getParameterMap());
 		Page<PeRegisterList> page = new Page<PeRegisterList>(pageNo, pageSize);
+		// 添加查询条件
+		queryWrapper.notLike("patient_name","%作废%");
+		queryWrapper.eq("status","3");
 		IPage<PeRegisterList> pageList = peRegisterListService.page(page, queryWrapper);
 		return Result.OK(pageList);
 	}
@@ -175,5 +163,42 @@ public class PeRegisterListController extends JeecgController<PeRegisterList, IP
     public Result<?> importExcel(HttpServletRequest request, HttpServletResponse response) {
         return super.importExcel(request, response, PeRegisterList.class);
     }
+
+	/** 
+	 * @description: 档案查询 
+	 * @param: ids 
+	 * @return: org.jeecg.common.api.vo.Result 
+	 * @author lhr
+	 * @date: 10/11/23 11:23 AM
+	 */ 
+	@AutoLog(value = "档案查询")
+	@ApiOperation(value="档案查询", notes="档案查询")
+	@RequiresPermissions("doctor:pe_register_list:personSearch")
+	@GetMapping("/personSearch/{ids}")
+	public Result personSearch(@PathVariable("ids") List<String> ids){
+		return  peRegisterListService.personSearch(ids);
+	}
+
+	/**
+	 * @description: 创建档案
+	 * @param: ids
+	 * @return: org.jeecg.common.api.vo.Result
+	 * @author lhr
+	 * @date: 10/11/23 11:23 AM
+	 */
+	@AutoLog(value = "档案查询")
+	@ApiOperation(value="档案查询", notes="档案查询")
+	@RequiresPermissions("doctor:pe_register_list:personCreate")
+	@GetMapping("/personCreate/{ids}")
+	public Result personCreate(@PathVariable("ids") List<String> ids){
+		return  peRegisterListService.personCreatete(ids);
+	}
+
+
+
+	@GetMapping("/newLogTest/{ids}")
+	public Result newLogTest(@PathVariable("ids") List<String> ids){
+		return  peRegisterListService.newLogTest(ids);
+	}
 
 }

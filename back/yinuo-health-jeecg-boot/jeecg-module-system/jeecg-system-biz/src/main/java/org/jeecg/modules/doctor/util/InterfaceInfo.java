@@ -1,10 +1,11 @@
 package org.jeecg.modules.doctor.util;
 
 public enum InterfaceInfo {
-    CHECK_PROJECTS("/msun-middle-business-lis/v1/lis-applies/items", "LIS检查项目查询","get"),
-    DEPARTMENTS_AND_OFFICES("/msun-middle-base-common/v1/depts", "科室信息","get"),
-    PERSON_SEARCH("/msun-middle-aggregate-patient/v1/pat-infos/10353", "档案查询","get"),
-    PERSON_CREATE("/msun-middle-aggregate-patient/v1/pat-infos/patients", "创建档案","post"),
+    CHECK_PROJECTS("/msun-middle-business-lis/v1/lis-applies/items", "LIS检查项目查询","get","lisApply"),
+    DEPARTMENTS_AND_OFFICES("/msun-middle-base-common/v1/depts", "科室信息","get","ksxx"),
+    PERSON_SEARCH("/msun-middle-aggregate-patient/v1/pat-infos/10353", "档案查询","get","dacx"),
+    PERSON_CREATE("/msun-middle-aggregate-patient/v1/pat-infos/patients", "创建档案","post","createda"),
+    LOG_TEST("log_test", "日志测试","post","log_test"),
 
     ;
     // url 复制

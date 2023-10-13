@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import io.swagger.annotations.ApiModel;
 import lombok.Data;
 import lombok.experimental.Accessors;
-import org.apache.poi.ss.formula.functions.T;
 
 /**
  * @author lihaoran
@@ -13,13 +12,13 @@ import org.apache.poi.ss.formula.functions.T;
 @Data
 @Accessors(chain = true)
 @ApiModel(value = "接口返回信息接受类", description = "接口返回信息接受类")
-public class  BaseRequestEntity {
+public class BaseResponseEntity {
     // 状态码
     @TableField(exist = false)
     private String code;
     // 是否成功
     @TableField(exist = false)
-    private boolean success;
+    private Boolean success;
     // 返回信息
     @TableField(exist = false)
     private String message;

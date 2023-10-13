@@ -28,20 +28,21 @@ public class RequestUtil {
     private static final String APP_ID = "app6096163592757055371";
     private static final String APP_SECRET = "MIICdwIBADANBgkqhkiG9w0BAQEFAASCAmEwggJdAgEAAoGBALR+DjmEgIGx0ZMgX+7iCTlF5/4dOzKwJBZf+DHNiq6Z/OeDIlMOL/D3vgWv76Fg4AWiCBG4ucqU5G1JUu2IS4wUOAFMsHVGbSWORl587vtXf4z9JxiB1epMInDKpBYiGXecC1NS1feyRBPMKZY9Wcr1GWi/ljxMtzARad9tEe1nAgMBAAECgYEApAGzLUKgfrk0pUsSwP91wCwsfTTUmN+DOy2jWqXZsYRNUZVP+EZ4+64yZfqTdYGQrq2oRWoksNcQpdmt2Bc0BSJsX7DbBz9Cd/rwDP/m/d96MB68RK64Y1/bXNsAevL5GJ8Y/JGn3/V08w5Qly9Ot495fxW0Wd0QqEdqaomo6QECQQDottwk3jpi2TcrB6HpvPJ0vz65QQLMh2LtMLO9+wh6OPdFp9qW8CAisPlO8D2P+y00/p3uAELv6gHo6OLylTaBAkEAxo1+xbxiBjtkLsGSbNL2bceTqEmux/9vIPF8b7Zz+YdjYBe8dIA3A9vJNtc291gqCseNLl2hjpafTr0v9gQ/5wJACqKIrvqk6m2I0uOXZ6ol3mX7BNZOvXAWekZ2gGEfgw5lZn6EQ8+XeF5kFlJuTc0pxLk6GG1Uocgs7CrwbCubgQJBAI//ipOJ3mW6qRun07QNBB/2AEaquZHe1Q/FU4QJhO7Rm+bTECBF5KBtw+58Ayc7z7Hlq6SWz1aEMqF+X8xCpL0CQCdP1JoaaGkYrRTVYXQi0G1ttK5Sqchh2FssyOWRHq5S9KH/dc9G2hWrn2Ci9WxvKxuI607MHDGVPSMkpRlJ9qo=";
 
-    @Value("thirdInterface.ip")
-    private static  String IP;
+//    @Value("thirdInterface.ip")
+    private static  String IP = "172.16.59.32";
 
     private static final String GET = "get";
 
     private static final String POST = "post";
+    private static final Integer TIMEOUT = 3000;
 
 
     public static String go(String url,String requestType,Map<String, Object> paramsMap) throws Exception{
         String message = "";
         if (requestType.equals(GET)){
-            message = get(url,paramsMap);
+            message = get(IP + url,paramsMap);
         }else {
-            message = post(url,paramsMap);
+            message = post(IP + url,paramsMap);
         }
         return message;
     }
@@ -84,6 +85,8 @@ public class RequestUtil {
         postHttpReq.addHeaders(headers);
         // 加入请求参数，转换成JSON后的
         postHttpReq.body(paramsJsonStr);
+        // 超时时间 10s
+        postHttpReq.setConnectionTimeout(TIMEOUT);
         // 发起请求
         HttpResponse response = postHttpReq.execute();
         // 返回结果body
@@ -139,6 +142,8 @@ public class RequestUtil {
         HttpRequest getHttpReq = HttpUtil.createGet(url);
         // 加入定义的请求头
         getHttpReq.addHeaders(headers);
+        // 超时时间 10s
+        getHttpReq.setConnectionTimeout(TIMEOUT);
         // 发起请求
         HttpResponse response = getHttpReq.execute();
         // 返回结果body

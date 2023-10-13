@@ -273,6 +273,7 @@ public class CheckProjectController {
      * @author lhr
      * @date: 10/10/23 6:40 PM
      */
+    @AutoLog(value = "同步所有的 LIS 的检查项目-LIS申请检验项目查询")
     @ApiOperation(value = "同步所有的 LIS 的检查项目", notes = "同步所有的 LIS 的检查项目")
     @RequiresPermissions("doctor:check_project:async")
     @RequestMapping(value = "/async", method = RequestMethod.GET)

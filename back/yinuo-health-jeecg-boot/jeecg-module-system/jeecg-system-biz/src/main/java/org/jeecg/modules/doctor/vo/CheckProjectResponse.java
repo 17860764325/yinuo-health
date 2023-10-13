@@ -4,7 +4,7 @@ import io.swagger.annotations.ApiModel;
 import lombok.Data;
 import lombok.experimental.Accessors;
 import org.jeecg.modules.doctor.entity.CheckProject;
-import org.jeecg.modules.doctor.entity.VO.BaseRequestEntity;
+import org.jeecg.modules.doctor.entity.VO.BaseResponseEntity;
 
 import java.util.List;
 
@@ -16,7 +16,7 @@ import java.util.List;
 @Data
 @Accessors(chain = true)
 @ApiModel(value = "查询检验项目的接口实体类", description = "查询检验项目的接口实体类")
-public class CheckProjectResponse extends BaseRequestEntity {
+public class CheckProjectResponse extends BaseResponseEntity {
 
     private List<CheckProject> data;
 

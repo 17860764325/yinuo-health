@@ -4,16 +4,13 @@ import { useMessage } from "/@/hooks/web/useMessage";
 const { createConfirm } = useMessage();
 
 enum Api {
-  list = '/doctor/peRegisterList/list',
-  save='/doctor/peRegisterList/add',
-  edit='/doctor/peRegisterList/edit',
-  deleteOne = '/doctor/peRegisterList/delete',
-  deleteBatch = '/doctor/peRegisterList/deleteBatch',
-  importExcel = '/doctor/peRegisterList/importExcel',
-  exportXls = '/doctor/peRegisterList/exportXls',
-  personSearch = '/doctor/peRegisterList/personSearch/',
-  personCreate = '/doctor/peRegisterList/personCreate/',
-  newLogTest = '/doctor/peRegisterList/newLogTest/',
+  list = '/doctor/interfaceRequestLog/list',
+  save='/doctor/interfaceRequestLog/add',
+  edit='/doctor/interfaceRequestLog/edit',
+  deleteOne = '/doctor/interfaceRequestLog/delete',
+  deleteBatch = '/doctor/interfaceRequestLog/deleteBatch',
+  importExcel = '/doctor/interfaceRequestLog/importExcel',
+  exportXls = '/doctor/interfaceRequestLog/exportXls',
 }
 /**
  * 导出api
@@ -28,15 +25,8 @@ export const getImportUrl = Api.importExcel;
  * 列表接口
  * @param params
  */
-export const list = (params) =>{
-  // 添加固定查询条件
-  // if (params !== null || params !== undefined || params !== ''){
-  //   params.status = 3
-  // }else {
-  //   params = {status: 3}
-  // }
-  return defHttp.get({url: Api.list, params});
-}
+export const list = (params) =>
+  defHttp.get({url: Api.list, params});
 
 /**
  * 删除单个
@@ -71,16 +61,4 @@ export const batchDelete = (params, handleSuccess) => {
 export const saveOrUpdate = (params, isUpdate) => {
   let url = isUpdate ? Api.edit : Api.save;
   return defHttp.post({url: url, params});
-}
-
-export const personSearch = (ids) => {
-  return defHttp.get({url: Api.personSearch + ids})
-}
-
-export const personCreate = (ids) => {
-  return defHttp.get({url: Api.personCreate + ids})
-}
-
-export const newLogTest = (ids) => {
-  return defHttp.get({url: Api.newLogTest + ids})
 }

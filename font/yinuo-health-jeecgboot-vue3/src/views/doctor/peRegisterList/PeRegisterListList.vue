@@ -7,8 +7,9 @@
         <!--          <a-button type="primary" @click="handleAdd" preIcon="ant-design:plus-outlined"> 新增</a-button>-->
         <!--          <a-button  type="primary" preIcon="ant-design:export-outlined" @click="onExportXls"> 导出</a-button>-->
         <!--          <j-upload-button  type="primary" preIcon="ant-design:import-outlined" @click="onImportXls">导入</j-upload-button>-->
-        <a-button type="primary" @click="" :icon="h(SearchOutlined)"> 人员档案查询</a-button>
-        <a-button type="primary" @click="" preIcon="ant-design:plus-outlined"> 创建人员档案</a-button>
+        <a-button type="primary" @click="newLogTestClick" > 新日志测试</a-button>
+        <a-button type="primary" @click="personSearchClick" :icon="h(SearchOutlined)"> 人员档案查询</a-button>
+        <a-button type="primary" @click="personCreateClick" preIcon="ant-design:plus-outlined"> 创建人员档案</a-button>
         <a-button type="primary" @click="" :icon="h(ArrowUpOutlined)" :disabled="LISApplyDisabled"> LIS检验申请
         </a-button>
         <a-button type="primary" @click="" :icon="h(BarcodeOutlined)"> 条码打印</a-button>
@@ -18,10 +19,22 @@
           <template #overlay>
             <a-menu>
               <!--                  批量操作的按钮在这里定义-->
-              <!--                  <a-menu-item key="1" @click="batchHandleDelete">-->
-              <!--                    <Icon icon="ant-design:delete-outlined"></Icon>-->
-              <!--                    删除-->
-              <!--                  </a-menu-item>-->
+              <a-menu-item key="1" @click="">
+                <Icon icon="ant-design:plus-outlined"></Icon>
+                创建人员档案
+              </a-menu-item>
+              <a-menu-item key="2" @click="">
+                <ArrowUpOutlined/>
+                LIS检验申请
+              </a-menu-item>
+              <a-menu-item key="3" @click="">
+                <BarcodeOutlined/>
+                条码打印
+              </a-menu-item>
+              <a-menu-item key="4" @click="">
+                <FileSearchOutlined/>
+                条码打印
+              </a-menu-item>
             </a-menu>
           </template>
           <a-button>批量操作
@@ -60,11 +73,24 @@ import {useModal} from '/@/components/Modal';
 import {useListPage} from '/@/hooks/system/useListPage'
 import PeRegisterListModal from './components/PeRegisterListModal.vue'
 import {columns, searchFormSchema} from './PeRegisterList.data';
-import {list, deleteOne, batchDelete, getImportUrl, getExportUrl} from './PeRegisterList.api';
+import {
+  list,
+  deleteOne,
+  batchDelete,
+  getImportUrl,
+  getExportUrl,
+  personSearch,
+  personCreate,
+  newLogTest
+} from './PeRegisterList.api';
 import {downloadFile} from '/@/utils/common/renderUtils';
 import {getAreaTextByCode} from "../../../components/Form/src/utils/Area";
 import {h} from 'vue';
 import {SearchOutlined, ArrowUpOutlined, BarcodeOutlined, FileSearchOutlined} from '@ant-design/icons-vue';
+import {useMessage} from "@/hooks/web/useMessage";
+import {defHttp} from "@/utils/http/axios";
+
+const {createMessage, createErrorModal, createConfirm} = useMessage();
 
 const checkedKeys = ref<Array<string | number>>([]);
 //注册model
@@ -103,10 +129,12 @@ const {prefixCls, tableContext, onExportXls, onImportXls} = useListPage({
   },
 })
 
-const [registerTable, {reload}, {rowSelection, selectedRowKeys}] = tableContext
+const [registerTable, {reload, setLoading}, {rowSelection, selectedRowKeys}] = tableContext
 
 // LIS检验申请是否需要禁用
 const LISApplyDisabled = ref(false)
+// 创建档案按钮是否禁用
+const personCreateDisabled = ref(false)
 
 /**
  * 选中修改事件
@@ -114,8 +142,106 @@ const LISApplyDisabled = ref(false)
 function sleectChange({keys, rows}) {
   if (rows.length > 1) {
     LISApplyDisabled.value = true;
+    personCreateDisabled.value = true;
   } else {
     LISApplyDisabled.value = false;
+    personCreateDisabled.value = false;
+  }
+}
+
+/**
+ * 人员档案查询
+ */
+async function personSearchClick() {
+  // 如果没有选中的数据提示请选择消息
+  if (rowSelection.selectedRows.length === 0) {
+    createMessage.warning("请选择数据！")
+  } else {
+    // 将选中行的 ids 传到后端，调用人员查询接口
+    const ids = ref<Array<String>>([])
+    rowSelection.selectedRows.forEach(item => {
+      ids.value.push(item.id)
+    })
+    console.log(ids.value)
+    await personSearch(ids.value).then(res => {
+      createConfirm({
+        iconType: 'info',
+        title: '返回结果',
+        content: res,
+        okText: '确认',
+        onOk: function () {
+          reload()
+        },
+        onCancel: function () {
+          reload()
+        },
+      });
+    })
+  }
+}
+
+/**
+ * 创建档案
+ */
+async function personCreateClick() {
+  // 如果没有选中的数据提示请选择消息
+  if (rowSelection.selectedRows.length === 0) {
+    createMessage.warning("请选择数据！")
+  } else {
+    // 发送请求创建人员档案，携带人员的ID
+    const ids = ref<Array<String>>([])
+    rowSelection.selectedRows.forEach(item => {
+      // 筛选出，没有 患者id 的数据 的 id 传输到后端，有patId的不需要创建档案
+      if (item.patId === undefined || item.patId === null || item.patId === '') {
+        ids.value.push(item.id)
+      }
+    })
+    if (ids.value.length > 0) {
+      await personCreate(ids.value).then(res => {
+        createConfirm({
+          iconType: 'info',
+          title: '返回结果',
+          content: res,
+          okText: '确认',
+          onOk: function () {
+            reload()
+          },
+          onCancel: function () {
+            reload()
+          },
+        });
+      })
+    } else {
+      createMessage.warning("请选择没有维护“患者id”的数据！")
+    }
+  }
+}
+
+async function newLogTestClick(){
+  // 如果没有选中的数据提示请选择消息
+  if (rowSelection.selectedRows.length === 0) {
+    createMessage.warning("请选择数据！")
+  } else {
+    // 将选中行的 ids 传到后端，调用人员查询接口
+    const ids = ref<Array<String>>([])
+    rowSelection.selectedRows.forEach(item => {
+      ids.value.push(item.id)
+    })
+    console.log(ids.value)
+    await newLogTest(ids.value).then(res => {
+      createConfirm({
+        iconType: 'info',
+        title: '返回结果',
+        content: res,
+        okText: '确认',
+        onOk: function () {
+          reload()
+        },
+        onCancel: function () {
+          reload()
+        },
+      });
+    })
   }
 }
 
