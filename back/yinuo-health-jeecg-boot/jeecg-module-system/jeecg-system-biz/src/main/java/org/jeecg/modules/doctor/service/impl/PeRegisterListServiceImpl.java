@@ -430,7 +430,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                     // 项目id
                     itemMap.put(LAB_ITEM_ID, ItemInfo.get(0).getLabItemId());
                     // 检验项目业务号
-                    itemMap.put(MAIN_ORDER_ID, patItem.getCureNo());
+                    itemMap.put(MAIN_ORDER_ID, ItemInfo.get(0).getMineProjectNo());
                     // 备注
                     itemMap.put(NOTE, StaticValue.WU.getCode());
                     // 医嘱字典id
