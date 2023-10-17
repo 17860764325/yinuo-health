@@ -15,6 +15,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 
 import org.jeecg.common.system.base.controller.JeecgController;
+import org.jeecg.modules.doctor.vo.LISApplyInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
@@ -192,6 +193,22 @@ public class PeRegisterListController extends JeecgController<PeRegisterList, IP
 	@GetMapping("/personCreate/{ids}")
 	public Result personCreate(@PathVariable("ids") List<String> ids){
 		return  peRegisterListService.personCreatete(ids);
+	}
+
+
+	/**
+	 * @description: LIS申请
+	 * @param: ids
+	 * @return: org.jeecg.common.api.vo.Result
+	 * @author lhr
+	 * @date: 10/11/23 11:23 AM
+	 */
+	@AutoLog(value = "LIS申请")
+	@ApiOperation(value="LIS申请", notes="LIS申请")
+	@RequiresPermissions("doctor:pe_register_list:LISApply")
+	@PostMapping("/LISApply")
+	public Result LISApply(@RequestBody LISApplyInfo lisApplyInfo){
+		return  peRegisterListService.LISApply(lisApplyInfo);
 	}
 
 

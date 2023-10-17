@@ -14,6 +14,7 @@ enum Api {
   personSearch = '/doctor/peRegisterList/personSearch/',
   personCreate = '/doctor/peRegisterList/personCreate/',
   newLogTest = '/doctor/peRegisterList/newLogTest/',
+  LisApply = '/doctor/peRegisterList/LISApply'
 }
 /**
  * 导出api
@@ -83,4 +84,8 @@ export const personCreate = (ids) => {
 
 export const newLogTest = (ids) => {
   return defHttp.get({url: Api.newLogTest + ids})
+}
+
+export const LISApply = (params) => {
+  return defHttp.post({url: Api.LisApply,params})
 }

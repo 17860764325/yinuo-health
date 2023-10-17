@@ -16,6 +16,8 @@ public class LogUtilNew {
      */
     private StringBuffer logMessage;
 
+    private StringBuffer resultMessage;
+
     // 构造函数，构建基础的信息
     LogUtilNew(InterfaceInfo interfaceInfo, PeRegisterList peRegister) {
         this.log = new InterfaceRequestLog();
@@ -31,6 +33,8 @@ public class LogUtilNew {
         this.log.setInterfaceName(interfaceInfo.getRemark());
         // log
         this.logMessage = new StringBuffer();
+        // resultMessage
+        this.resultMessage = new StringBuffer();
     }
 
     // 获取构造函数
@@ -48,8 +52,13 @@ public class LogUtilNew {
 
     // 日志
     public StringBuffer log(String message) {
-        this.logMessage.append(message);
+        this.logMessage.append(message + "|");
         return this.logMessage;
+    }
+
+    public StringBuffer resultLog(String message) {
+        this.resultMessage.append("患者：" + this.log.getPatientName() + "," + message);
+        return this.resultMessage;
     }
 
     // 是否成功标识
@@ -58,12 +67,12 @@ public class LogUtilNew {
     }
 
     // 发送请求信息
-    public void setSendMessage(String  message) {
-      this.log.setSendMessage(message);
+    public void setSendMessage(String message) {
+        this.log.setSendMessage(message);
     }
 
     // 接受请求信息
-    public void setReceiveMessage(String  message) {
+    public void setReceiveMessage(String message) {
         this.log.setReceiveMessage(message);
     }
 

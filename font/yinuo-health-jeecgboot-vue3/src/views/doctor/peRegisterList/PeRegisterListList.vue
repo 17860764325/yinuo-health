@@ -10,7 +10,7 @@
         <a-button type="primary" @click="newLogTestClick" > 新日志测试</a-button>
         <a-button type="primary" @click="personSearchClick" :icon="h(SearchOutlined)"> 人员档案查询</a-button>
         <a-button type="primary" @click="personCreateClick" preIcon="ant-design:plus-outlined"> 创建人员档案</a-button>
-        <a-button type="primary" @click="" :icon="h(ArrowUpOutlined)" :disabled="LISApplyDisabled"> LIS检验申请
+        <a-button type="primary" @click="LISApply" :icon="h(ArrowUpOutlined)" > LIS检验申请
         </a-button>
         <a-button type="primary" @click="" :icon="h(BarcodeOutlined)"> 条码打印</a-button>
         <a-button type="primary" @click="" :icon="h(FileSearchOutlined)"> 报告查询</a-button>
@@ -63,6 +63,7 @@
     </BasicTable>
     <!-- 表单区域 -->
     <PeRegisterListModal @register="registerModal" @success="handleSuccess"></PeRegisterListModal>
+    <Modal @register="registerLisApplyModal" :ids="ids" @success="handleSuccess" ></Modal>
   </div>
 </template>
 
@@ -88,13 +89,15 @@ import {getAreaTextByCode} from "../../../components/Form/src/utils/Area";
 import {h} from 'vue';
 import {SearchOutlined, ArrowUpOutlined, BarcodeOutlined, FileSearchOutlined} from '@ant-design/icons-vue';
 import {useMessage} from "@/hooks/web/useMessage";
-import {defHttp} from "@/utils/http/axios";
+import Modal from './components/LISApplyModal.vue';
 
 const {createMessage, createErrorModal, createConfirm} = useMessage();
 
 const checkedKeys = ref<Array<string | number>>([]);
 //注册model
 const [registerModal, {openModal}] = useModal();
+// 注册LIS申请的弹窗
+const [registerLisApplyModal,{openModal:openLisApplyModal,closeModal:closeLisApplyModal,setModalProps:setLisApplyModalProps}] =useModal();
 //注册table数据
 const {prefixCls, tableContext, onExportXls, onImportXls} = useListPage({
   tableProps: {
@@ -135,6 +138,8 @@ const [registerTable, {reload, setLoading}, {rowSelection, selectedRowKeys}] = t
 const LISApplyDisabled = ref(false)
 // 创建档案按钮是否禁用
 const personCreateDisabled = ref(false)
+// 获取选中人员
+const ids = ref<Array<String>>([])
 
 /**
  * 选中修改事件
@@ -217,6 +222,34 @@ async function personCreateClick() {
   }
 }
 
+/**
+ * LIS检验申请提交
+ */
+async function LISApply(){
+  // 如果没有选中的数据提示请选择消息
+  if (rowSelection.selectedRows.length === 0) {
+    createMessage.warning("请选择数据！")
+  } else {
+    rowSelection.selectedRows.forEach(item => {
+      // 筛选出，有 患者id 的数据 的 id 传输到后端，有patId的不需要创建档案
+      if (item.patId !== undefined && item.patId !== null && item.patId !== '') {
+        ids.value.push(item.id)
+      }
+    })
+    // 如果选择的人都是没有患者id的那么就提示
+    if(ids.value.length > 0){
+      // 弹出表单弹窗
+      setLisApplyModalProps({useWrapper:true});
+      openLisApplyModal(true,{
+        ids:ids.value
+      });
+    }else {
+      createMessage.warning("请选择维护了“患者id”的数据！");
+    }
+
+  }
+}
+
 async function newLogTestClick(){
   // 如果没有选中的数据提示请选择消息
   if (rowSelection.selectedRows.length === 0) {
@@ -295,6 +328,7 @@ async function batchHandleDelete() {
  * 成功回调
  */
 function handleSuccess() {
+  ids.value = [];
   (selectedRowKeys.value = []) && reload();
 }
 

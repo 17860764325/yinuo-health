@@ -2,4 +2,15 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.jeecg.modules.doctor.mapper.PeRegisterListMapper">
 
+    <select id="getPatItems" resultType="org.jeecg.modules.doctor.entity.PatItems">
+        select cur_assay_master.patient_no,
+               cur_assay_master.patient_name,
+               cur_assay_master.assay_cause,
+               cur_assay_master.item_name,
+               pe_register_items.cure_no,
+               pe_register_items.compose_item_no
+        from cur_assay_master
+                 left join pe_register_items on assay_no = cure_no
+        where cur_assay_master.patient_no = #{patientNo};
+    </select>
 </mapper>

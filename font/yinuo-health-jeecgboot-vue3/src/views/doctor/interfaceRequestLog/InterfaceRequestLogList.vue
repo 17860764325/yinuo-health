@@ -55,7 +55,7 @@
   import {getAreaTextByCode} from "../../../components/Form/src/utils/Area";
   const checkedKeys = ref<Array<string | number>>([]);
   //注册model
-  const [registerModal, {openModal}] = useModal();
+  const [registerModal, {openModal,setModalProps}] = useModal();
   //注册table数据
   const { prefixCls,tableContext,onExportXls,onImportXls } = useListPage({
       tableProps:{
@@ -113,6 +113,7 @@
     * 详情
    */
   function handleDetail(record: Recordable) {
+    setModalProps({defaultFullscreen:true})
      openModal(true, {
        record,
        isUpdate: true,

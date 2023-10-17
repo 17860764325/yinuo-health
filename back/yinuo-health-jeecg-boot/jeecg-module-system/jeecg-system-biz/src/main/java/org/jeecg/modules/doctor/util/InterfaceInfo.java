@@ -5,6 +5,7 @@ public enum InterfaceInfo {
     DEPARTMENTS_AND_OFFICES("/msun-middle-base-common/v1/depts", "科室信息","get","ksxx"),
     PERSON_SEARCH("/msun-middle-aggregate-patient/v1/pat-infos/10353", "档案查询","get","dacx"),
     PERSON_CREATE("/msun-middle-aggregate-patient/v1/pat-infos/patients", "创建档案","post","createda"),
+    LIS_APPLY("/msun-middle-business-lis/v1/lis-applies", "LIS检验申请","post","lisApply"),
     LOG_TEST("log_test", "日志测试","post","log_test"),
 
     ;
