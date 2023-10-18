@@ -1,58 +1,83 @@
-import {BasicColumn} from '/@/components/Table';
-import {FormSchema} from '/@/components/Table';
+import { BasicColumn } from '/@/components/Table';
+import { FormSchema } from '/@/components/Table';
+import { render } from '/@/utils/common/renderUtils';
 //列表数据
 export const columns: BasicColumn[] = [
-    {
-        title: '体检号',
-        align: "center",
-        dataIndex: 'patientNo',
-        sorter: true
+  {
+    title: '体检号',
+    align: 'center',
+    dataIndex: 'patientNo',
+    sorter: true,
+  },
+  {
+    title: '姓名',
+    align: 'center',
+    dataIndex: 'patientName',
+  },
+  {
+    title: '患者id',
+    align: 'center',
+    dataIndex: 'patId',
+  },
+  {
+    title: 'LIS检验申请',
+    align: 'center',
+    dataIndex: 'isLisApply',
+    customRender: ({ value }) => {
+      return render.renderDict(value, 'patient_status');
     },
-    {
-        title: '患者id',
-        align: "center",
-        dataIndex: 'patId'
+  },
+  {
+    title: '条码生成',
+    align: 'center',
+    dataIndex: 'isBarCodeBuild',
+    customRender: ({ value }) => {
+      return render.renderDict(value, 'patient_status');
     },
-    {
-        title: '体检时间',
-        align: "center",
-        dataIndex: 'peDate'
+  },
+  {
+    title: '报告查询',
+    align: 'center',
+    dataIndex: 'isReport',
+    customRender: ({ value }) => {
+      return render.renderDict(value, 'patient_status');
     },
-    {
-        title: '姓名',
-        align: "center",
-        dataIndex: 'patientName'
-    },
-    {
-        title: '性别',
-        align: "center",
-        dataIndex: 'sex'
-    },
-    {
-        title: '生日',
-        align: "center",
-        dataIndex: 'birthday'
-    },
-    {
-        title: '年龄',
-        align: "center",
-        dataIndex: 'age'
-    },
-    {
-        title: '身份证号',
-        align: "center",
-        dataIndex: 'personNo'
-    },
-    {
-        title: '地址',
-        align: "center",
-        dataIndex: 'address'
-    },
-    {
-        title: '手机号',
-        align: "center",
-        dataIndex: 'telphone'
-    },
+  },
+  {
+    title: '体检时间',
+    align: 'center',
+    dataIndex: 'peDate',
+  },
+  {
+    title: '性别',
+    align: 'center',
+    dataIndex: 'sex',
+  },
+  {
+    title: '生日',
+    align: 'center',
+    dataIndex: 'birthday',
+  },
+  {
+    title: '年龄',
+    align: 'center',
+    dataIndex: 'age',
+  },
+  {
+    title: '身份证号',
+    align: 'center',
+    dataIndex: 'personNo',
+  },
+  {
+    title: '地址',
+    align: 'center',
+    dataIndex: 'address',
+  },
+  {
+    title: '手机号',
+    align: 'center',
+    dataIndex: 'telphone',
+  },
 ];
 //查询数据
 export const searchFormSchema: FormSchema[] = [
