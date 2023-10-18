@@ -14,7 +14,7 @@
         </a-button>
         <a-button type="primary" @click="barCodebuildClick" :icon="h(BarcodeOutlined)" :disabled="barCodeBuildDisabled">
           条码生成</a-button>
-        <a-button type="primary" @click="" :icon="h(FileSearchOutlined)" :disabled="reportSearchDisabled"> 报告查询</a-button>
+        <a-button type="primary" @click="reportSearchClick" :icon="h(FileSearchOutlined)" :disabled="reportSearchDisabled"> 报告查询</a-button>
 
         <a-dropdown v-if="selectedRowKeys.length > 0">
           <template #overlay>
@@ -43,6 +43,25 @@
           </a-button>
         </a-dropdown>
       </template>
+
+      <template #isLisApply="{ record }">
+        <Tag :color="soltColor(record.isLisApply)">
+          {{ soltFontSize(record.isLisApply) }}
+        </Tag>
+      </template>
+
+      <template #isBarCodeBuild="{ record }">
+          <Tag :color="soltColor(record.isBarCodeBuild)">
+            {{ soltFontSize(record.isBarCodeBuild) }}
+          </Tag>
+        </template>
+
+        <template #isReport="{ record }">
+          <Tag :color="soltColor(record.isReport)">
+            {{ soltFontSize(record.isReport) }}
+          </Tag>
+        </template>
+
       <!--操作栏-->
       <template #action="{ record }">
         <TableAction :actions="getTableAction(record)" :dropDownActions="getDropDownAction(record)" />
@@ -84,6 +103,7 @@ import {
   personSearch,
   personCreate,
   barCodeBuild,
+  reportSearch,
   newLogTest
 } from './PeRegisterList.api';
 import { downloadFile } from '/@/utils/common/renderUtils';
@@ -92,6 +112,7 @@ import { h } from 'vue';
 import { SearchOutlined, ArrowUpOutlined, BarcodeOutlined, FileSearchOutlined } from '@ant-design/icons-vue';
 import { useMessage } from "@/hooks/web/useMessage";
 import Modal from './components/LISApplyModal.vue';
+import { Tag, Avatar } from 'ant-design-vue';
 
 const { createMessage, createErrorModal, createConfirm } = useMessage();
 
@@ -276,8 +297,7 @@ async function barCodebuildClick() {
   } else {
     const ids = ref<Array<String>>([])
     rowSelection.selectedRows.forEach(item => {
-      // 筛选出，有 患者id 的数据 的 id 传输到后端，有patId的不需要创建档案
-        ids.value.push(item.id)
+      ids.value.push(item.id)
     })
     await barCodeBuild(ids.value).then(res => {
       createConfirm({
@@ -295,6 +315,55 @@ async function barCodebuildClick() {
     })
   }
 }
+
+/**
+ * 报告查询维护
+ */
+async function reportSearchClick() {
+  if (rowSelection.selectedRows.length === 0) {
+    createMessage.warning("请选择数据！")
+  } else {
+    const ids = ref<Array<String>>([])
+    rowSelection.selectedRows.forEach(item => {
+      ids.value.push(item.id)
+    })
+    await reportSearch(ids.value).then(res => {
+      createConfirm({
+        iconType: 'info',
+        title: '返回结果',
+        content: res,
+        okText: '确认',
+        onOk: function () {
+          reload()
+        },
+        onCancel: function () {
+          reload()
+        },
+      });
+    })
+  }
+}
+
+/**
+ * 完成插槽，字以及颜色
+ */
+function soltFontSize(value:string) {
+  if (value === '1') {
+    return '已完成'
+  } else {
+    return '未完成'
+  }
+}
+
+function soltColor(value: string) {
+  if (value === '1') {
+    return 'green'
+  } else {
+    return 'red'
+  }
+}
+
+
 
 async function newLogTestClick() {
   // 如果没有选中的数据提示请选择消息

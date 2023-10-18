@@ -2,9 +2,11 @@ package org.jeecg.modules.doctor.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.checkerframework.checker.units.qual.A;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.modules.doctor.entity.*;
@@ -23,6 +25,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+
+import static cn.hutool.core.date.DatePattern.NORM_DATETIME_FORMAT;
 
 /**
  * @Description: 人员信息查询
@@ -48,6 +52,10 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
     private static final InterfaceInfo LIS_APPLY = InterfaceInfo.LIS_APPLY;
     // 条码生成
     private static final InterfaceInfo BAR_CODE_BUILD = InterfaceInfo.BAR_CODE_BUILD;
+    // 报告ID查询
+    private static final InterfaceInfo REPORT_ID_SEARCH = InterfaceInfo.REPORT_ID_SEARCH;
+    // 报告查询
+    private static final InterfaceInfo REPORT_DETAIL_SEARCH = InterfaceInfo.REPORT_DETAIL_SEARCH;
 
     private static final String SEX = "sex";
     private static final String BIRTH_DAY = "birthday";
@@ -78,6 +86,9 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
     private static final String REPORT_ITEM_ID = "reportItemId";
     private static final String EXECUTE_STATE = "executeState";
     private static final String MAIN_ORDER_ID_LIST = "mainOrderIdList";
+    private static final String START_TIME = "startTime";
+    private static final String END_TIME = "endTime";
+    private static final String BAR_CODE_LIST = "barcodeList";
 
     @Autowired
     private LogUtil logUtil;
@@ -547,7 +558,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
         // 循环数据操作
         for (PeRegisterList peRegister : peRegisterLists) {
             // 单个人员返信息
-            StringBuffer result ;
+            StringBuffer result;
             // 日志信息
             LogUtilNew log = LogUtilNew.getInstance(BAR_CODE_BUILD, peRegister);
             try {
@@ -587,7 +598,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                         "                \"社区查体生化项目\"\n" +
                         "            ],\n" +
                         "            \"labItemIdList\": [\n" +
-                        "                \"1506431\"\n" +
+                        "                \"78016\"\n" +
                         "            ],\n" +
                         "            \"patNo\": \"2207011426\",\n" +
                         "            \"patId\": \"2207011426\",\n" +
@@ -606,6 +617,42 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                         "            ],\n" +
                         "            \"labItemIdList\": [\n" +
                         "                \"1506431\"\n" +
+                        "            ],\n" +
+                        "            \"patNo\": \"2207011426\",\n" +
+                        "            \"patId\": \"2207011426\",\n" +
+                        "            \"receiptText\": null\n" +
+                        "        },\n" +
+                        "        {\n" +
+                        "            \"barcode\": \"2310051054\",\n" +
+                        "            \"patName\": \"22\",\n" +
+                        "            \"patSex\": \"男\",\n" +
+                        "            \"patAge\": \"33岁\",\n" +
+                        "            \"tubeColor\": \"浅红色\",\n" +
+                        "            \"createTime\": \"2023-10-05 11:18:15\",\n" +
+                        "            \"sampleClassName\": \"血清\",\n" +
+                        "            \"labItemName\": [\n" +
+                        "                \"社区查体生化项目\"\n" +
+                        "            ],\n" +
+                        "            \"labItemIdList\": [\n" +
+                        "                \"1721009\"\n" +
+                        "            ],\n" +
+                        "            \"patNo\": \"2207011426\",\n" +
+                        "            \"patId\": \"2207011426\",\n" +
+                        "            \"receiptText\": null\n" +
+                        "        },\n" +
+                        "        {\n" +
+                        "            \"barcode\": \"2310051053\",\n" +
+                        "            \"patName\": \"22\",\n" +
+                        "            \"patSex\": \"男\",\n" +
+                        "            \"patAge\": \"33岁\",\n" +
+                        "            \"tubeColor\": \"浅红色\",\n" +
+                        "            \"createTime\": \"2023-10-05 11:18:15\",\n" +
+                        "            \"sampleClassName\": \"血清\",\n" +
+                        "            \"labItemName\": [\n" +
+                        "                \"社区查体生化项目\"\n" +
+                        "            ],\n" +
+                        "            \"labItemIdList\": [\n" +
+                        "                \"77834\"\n" +
                         "            ],\n" +
                         "            \"patNo\": \"2207011426\",\n" +
                         "            \"patId\": \"2207011426\",\n" +
@@ -689,6 +736,260 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
             resultAll.append(result);
         }
         return Result.ok(resultAll);
+    }
+
+    /**
+     * @description: 报告查询维护
+     * @param: ids
+     * @return: org.jeecg.common.api.vo.Result
+     * @author lhr
+     * @date: 2023/10/18 22:17
+     */
+    @Override
+    public Result reportSearch(List<String> ids) {
+        // 信息总返回
+        StringBuffer resultAll = new StringBuffer();
+        // 查询人员信息
+        List<PeRegisterList> peRegisterLists = this.listByIds(ids);
+        // 循环数据进行操作
+        for (PeRegisterList peRegister : peRegisterLists) {
+            try {
+                // 报告ID查询和维护
+                resultAll.append(reportIdSearch(peRegister));
+                // 报告内容查询和维护
+                resultAll.append(reportDetailSearch(peRegister));
+            } catch (Exception e) {
+                resultAll.append("患者：" + peRegister.getPatientName() + e.getMessage());
+            }
+        }
+        return Result.ok(resultAll);
+    }
+
+    /**
+     * @description:
+     * @param: peRegister
+     * @return: java.lang.StringBuffer
+     * @author lhr
+     * @date: 2023/10/18 23:55
+     */
+    @Transactional
+    public StringBuffer reportIdSearch(PeRegisterList peRegister) throws Exception {
+        StringBuffer result = null;
+        LogUtilNew log = LogUtilNew.getInstance(REPORT_ID_SEARCH, peRegister);
+        try {
+            // 获取该患者的条码关系表数据
+            List<LisApplyBarCodeReportId> list = lisApplyBarCodeReportIdService.list(new LambdaQueryWrapper<LisApplyBarCodeReportId>().eq(LisApplyBarCodeReportId::getPatientNo, peRegister.getPatientNo()));
+            // 维护日志
+            log.log("查询该患者的条码关系表数据：" + JSONUtil.parse(list));
+            // 判断
+            if (CollUtil.isEmpty(list)) {
+                throw new RuntimeException("没有查询到该用户的条码关系");
+            }
+            // 组装参数，获取条码信息
+            Map<String, Object> paramsMap = new HashMap<>();
+            // 时间范围为，从该患者提交LIS检验申请开始，一直到今天
+            // 开始时间
+            paramsMap.put(START_TIME, DateUtil.format(list.get(0).getCreateTime(), NORM_DATETIME_FORMAT));
+            // 结束时间
+            paramsMap.put(END_TIME, DateUtil.now());
+            // 患者id
+            paramsMap.put(PAT_ID, peRegister.getPatId());
+            // 检验好，体检号
+            paramsMap.put(PAT_NO, peRegister.getPatientNo());
+            // 条码号
+            List<String> barcodeList = new ArrayList<>();
+            for (LisApplyBarCodeReportId lisApplyBarCodeReportId : list) {
+                if (StrUtil.isNotEmpty(lisApplyBarCodeReportId.getBarCode())) {
+                    barcodeList.add(lisApplyBarCodeReportId.getBarCode());
+                }
+            }
+            // 判断筛选后的条码信息是否为空
+            if (CollUtil.isEmpty(barcodeList)) {
+                throw new RuntimeException("条码参数为空，条码关系表，并没有维护条码信息");
+            }
+            paramsMap.put(BAR_CODE_LIST, barcodeList);
+            // 发送参数
+            log.setSendMessage(JSONUtil.parse(paramsMap).toString());
+            // 发送请求
+//            String res = RequestUtil.go(REPORT_ID_SEARCH.getUrl(), REPORT_ID_SEARCH.getRequestType(), paramsMap);
+            String res = "{\n" +
+                    "    \"success\": true,\n" +
+                    "    \"decorate\": true,\n" +
+                    "    \"code\": \"0000\",\n" +
+                    "    \"message\": \"成功\",\n" +
+                    "    \"data\": [\n" +
+                    "        {\n" +
+                    "            \"reportId\": \"20231006023853001\",\n" +
+                    "            \"keynoGroup\": \"20231006023853001\",\n" +
+                    "            \"patId\": \"2156980\",\n" +
+                    "            \"barCode\": \"2310051054\",\n" +
+                    "            \"patName\": \"22\",\n" +
+                    "            \"patDeptName\": \"社区门诊\",\n" +
+                    "            \"patInHosId\": null,\n" +
+                    "            \"patType\": \"3\",\n" +
+                    "            \"collectTime\": \"2023-10-05 17:04:29\",\n" +
+                    "            \"reportTime\": \"2023-10-06 09:00:20\",\n" +
+                    "            \"flagGerm\": 0,\n" +
+                    "            \"reportNotes\": \"\",\n" +
+                    "            \"testList\": \"尿液分析\",\n" +
+                    "            \"testUser\": \"郑伟阶\",\n" +
+                    "            \"checkUser\": \"李万生\",\n" +
+                    "            \"filingMemo\": null,\n" +
+                    "            \"smearMemo\": null,\n" +
+                    "            \"criticalFlag\": 0,\n" +
+                    "            \"multiDrugResistance\": 0,\n" +
+                    "            \"sampleClassId\": \"20000113\",\n" +
+                    "            \"sampleClassName\": \"尿液\"\n" +
+                    "        },\n" +
+                    "        {\n" +
+                    "            \"reportId\": \"20231006040853001\",\n" +
+                    "            \"keynoGroup\": \"20231006040853001\",\n" +
+                    "            \"patId\": \"2156980\",\n" +
+                    "            \"barCode\": \"2310051056\",\n" +
+                    "            \"patName\": \"22\",\n" +
+                    "            \"patDeptName\": \"社区门诊\",\n" +
+                    "            \"patInHosId\": null,\n" +
+                    "            \"patType\": \"3\",\n" +
+                    "            \"collectTime\": \"2023-10-05 17:04:29\",\n" +
+                    "            \"reportTime\": \"2023-10-06 09:02:24\",\n" +
+                    "            \"flagGerm\": 0,\n" +
+                    "            \"reportNotes\": \"\",\n" +
+                    "            \"testList\": \"葡萄糖测定(化学法),社区查体生化项目\",\n" +
+                    "            \"testUser\": \"陈柯\",\n" +
+                    "            \"checkUser\": \"刘涛\",\n" +
+                    "            \"filingMemo\": null,\n" +
+                    "            \"smearMemo\": null,\n" +
+                    "            \"criticalFlag\": 0,\n" +
+                    "            \"multiDrugResistance\": 0,\n" +
+                    "            \"sampleClassId\": \"20000207\",\n" +
+                    "            \"sampleClassName\": \"血清\"\n" +
+                    "        },\n" +
+                    "        {\n" +
+                    "            \"reportId\": \"20231006040853001\",\n" +
+                    "            \"keynoGroup\": \"20231006040853001\",\n" +
+                    "            \"patId\": \"2156980\",\n" +
+                    "            \"barCode\": \"2310051055\",\n" +
+                    "            \"patName\": \"22\",\n" +
+                    "            \"patDeptName\": \"社区门诊\",\n" +
+                    "            \"patInHosId\": null,\n" +
+                    "            \"patType\": \"3\",\n" +
+                    "            \"collectTime\": \"2023-10-05 17:04:29\",\n" +
+                    "            \"reportTime\": \"2023-10-06 09:02:24\",\n" +
+                    "            \"flagGerm\": 0,\n" +
+                    "            \"reportNotes\": \"\",\n" +
+                    "            \"testList\": \"葡萄糖测定(化学法),社区查体生化项目\",\n" +
+                    "            \"testUser\": \"陈柯\",\n" +
+                    "            \"checkUser\": \"刘涛\",\n" +
+                    "            \"filingMemo\": null,\n" +
+                    "            \"smearMemo\": null,\n" +
+                    "            \"criticalFlag\": 0,\n" +
+                    "            \"multiDrugResistance\": 0,\n" +
+                    "            \"sampleClassId\": \"20000207\",\n" +
+                    "            \"sampleClassName\": \"血清\"\n" +
+                    "        },\n" +
+                    "        {\n" +
+                    "            \"reportId\": \"20231006040853009\",\n" +
+                    "            \"keynoGroup\": \"20231006040853009\",\n" +
+                    "            \"patId\": \"2156980\",\n" +
+                    "            \"barCode\": \"2310051053\",\n" +
+                    "            \"patName\": \"22\",\n" +
+                    "            \"patDeptName\": \"社区门诊\",\n" +
+                    "            \"patInHosId\": null,\n" +
+                    "            \"patType\": \"3\",\n" +
+                    "            \"collectTime\": \"2023-10-05 17:04:29\",\n" +
+                    "            \"reportTime\": \"2023-10-06 09:02:24\",\n" +
+                    "            \"flagGerm\": 0,\n" +
+                    "            \"reportNotes\": \"\",\n" +
+                    "            \"testList\": \"全血细胞计数+五分类\",\n" +
+                    "            \"testUser\": \"陈柯\",\n" +
+                    "            \"checkUser\": \"刘涛\",\n" +
+                    "            \"filingMemo\": null,\n" +
+                    "            \"smearMemo\": null,\n" +
+                    "            \"criticalFlag\": 0,\n" +
+                    "            \"multiDrugResistance\": 0,\n" +
+                    "            \"sampleClassId\": \"20000207\",\n" +
+                    "            \"sampleClassName\": \"血清\"\n" +
+                    "        }\n" +
+                    "    ],\n" +
+                    "    \"traceId\": \"9067ceab-f117-4c1a-b315-6ba12456ac00\",\n" +
+                    "    \"exceptionName\": null,\n" +
+                    "    \"qualityMonitor\": null,\n" +
+                    "    \"ignoreQualityMonitor\": false,\n" +
+                    "    \"level\": \"info\",\n" +
+                    "    \"service\": \"msun-middle-business-lis\",\n" +
+                    "    \"businessException\": false\n" +
+                    "}";
+            // 接受参数
+            log.setReceiveMessage(res);
+            // 判断
+            if (!JSONUtil.isTypeJSON(res)) {
+                throw new RuntimeException("返回数据不是json");
+            }
+            // 映射接收类
+            ReportIdSearchResponse response = JSONUtil.toBean(res, ReportIdSearchResponse.class);
+            // 判断
+            if (BeanUtil.isEmpty(response) || CollUtil.isEmpty(response.getData()) || (!response.getSuccess())) {
+                throw new RuntimeException("接口返回信息为空，或者失败！");
+            }
+            // 维护报告ID
+            for (ReportIdSearchVo datum : response.getData()) {
+                // 根据患者id和条码号更新
+                boolean update = lisApplyBarCodeReportIdService.update(new LambdaUpdateWrapper<LisApplyBarCodeReportId>()
+                        .eq(LisApplyBarCodeReportId::getPatId, datum.getPatId())
+                        .eq(LisApplyBarCodeReportId::getBarCode, datum.getBarCode())
+                        .set(LisApplyBarCodeReportId::getReportId, datum.getReportId()));
+                log.log("更新报告id：患者id：" + datum.getPatId() + ",条码号：" + datum.getBarCode() + ",报告id：" + datum.getReportId() + "||");
+            }
+            // 返回成功信息
+            log.success(true);
+            log.log("报告id查询维护成功！");
+            result = log.resultLog("报告id查询维护成功！");
+        } catch (Exception e) {
+            // 接口请求失败
+            log.success(false);
+            // 日志记录
+            log.log("报错：" + e.getMessage());
+            result = log.resultLog("报错：" + e.getMessage());
+            // 抛出异常进行下一位患者。
+            throw e;
+        } finally {
+            // 保存日志
+            log.saveLog();
+        }
+        return result;
+    }
+
+    /**
+     * @description:
+     * @param: peRegister
+     * @return: java.lang.StringBuffer
+     * @author lhr
+     * @date: 2023/10/18 23:55
+     */
+    @Transactional
+    public StringBuffer reportDetailSearch(PeRegisterList peRegister) {
+        StringBuffer result = new StringBuffer("报告详情维护失败！");
+        LogUtilNew log = LogUtilNew.getInstance(REPORT_DETAIL_SEARCH, peRegister);
+        try {
+            // 组装参数，获取报告id
+
+            // 发送请求
+
+            // 维护检验信息
+
+            // 维护人员状态，报告查询维护：已完成
+
+        } catch (Exception e) {
+            // 接口请求失败
+            log.success(false);
+            // 日志记录
+            log.log("报错：" + e.getMessage());
+            result = log.resultLog("报错：" + e.getMessage());
+        } finally {
+            // 保存日志
+            log.saveLog();
+        }
+        return result;
     }
 
 

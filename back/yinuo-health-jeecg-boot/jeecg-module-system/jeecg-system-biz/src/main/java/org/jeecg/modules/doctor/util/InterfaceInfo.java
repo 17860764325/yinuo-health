@@ -7,6 +7,8 @@ public enum InterfaceInfo {
     PERSON_CREATE("/msun-middle-aggregate-patient/v1/pat-infos/patients", "创建档案","post","createda"),
     LIS_APPLY("/msun-middle-business-lis/v1/lis-applies", "LIS检验申请","post","lisApply"),
     BAR_CODE_BUILD("/msun-middle-business-lis/v1/lis-barcodes", "条码生成","post","barCodeBuild"),
+    REPORT_ID_SEARCH("/msun-middle-business-lis/v1/lis-reports", "查询报告ID","get","reportIdSearch"),
+    REPORT_DETAIL_SEARCH("/msun-middle-business-lis/v1/lis-reports/details", "报告明细查询","get","reportDetailSearch"),
     LOG_TEST("log_test", "日志测试","post","log_test"),
 
     ;

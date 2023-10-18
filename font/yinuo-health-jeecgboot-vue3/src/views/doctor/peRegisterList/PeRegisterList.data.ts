@@ -23,25 +23,28 @@ export const columns: BasicColumn[] = [
     title: 'LIS检验申请',
     align: 'center',
     dataIndex: 'isLisApply',
-    customRender: ({ value }) => {
-      return render.renderDict(value, 'patient_status');
-    },
+    // customRender: ({ value }) => {
+    //   return render.renderDict(value, 'patient_status');
+    // },
+    slots: { customRender: 'isLisApply' },
   },
   {
     title: '条码生成',
     align: 'center',
     dataIndex: 'isBarCodeBuild',
-    customRender: ({ value }) => {
-      return render.renderDict(value, 'patient_status');
-    },
+    // customRender: ({ value }) => {
+    //   return render.renderDict(value, 'patient_status');
+    // },
+    slots: { customRender: 'isBarCodeBuild' },
   },
   {
     title: '报告查询',
     align: 'center',
     dataIndex: 'isReport',
-    customRender: ({ value }) => {
-      return render.renderDict(value, 'patient_status');
-    },
+    // customRender: ({ value }) => {
+    //   return render.renderDict(value, 'patient_status');
+    // },
+    slots: { customRender: 'isReport' },
   },
   {
     title: '体检时间',

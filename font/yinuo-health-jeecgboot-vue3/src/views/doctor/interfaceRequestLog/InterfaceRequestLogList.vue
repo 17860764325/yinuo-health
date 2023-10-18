@@ -2,6 +2,12 @@
   <div>
     <!--引用表格-->
    <BasicTable @register="registerTable" :rowSelection="rowSelection">
+    <template #success="{ record }">
+              <Tag :color="record.success === 'success' ? 'green' : 'red'">
+                {{ record.success === 'success' ? '成功' : '失败' }}
+              </Tag>
+            </template>
+         <!--操作栏-->
      <!--插槽:table标题-->
       <template #tableTitle>
           <a-button type="primary" @click="handleAdd" v-auth="'doctor:interface_request_log:add'" preIcon="ant-design:plus-outlined"> 新增</a-button>
@@ -21,7 +27,6 @@
               </a-button>
         </a-dropdown>
       </template>
-       <!--操作栏-->
       <template #action="{ record }">
         <TableAction :actions="getTableAction(record)" :dropDownActions="getDropDownAction(record)"/>
       </template>
@@ -52,7 +57,8 @@
   import {columns, searchFormSchema} from './InterfaceRequestLog.data';
   import {list, deleteOne, batchDelete, getImportUrl,getExportUrl} from './InterfaceRequestLog.api';
   import { downloadFile } from '/@/utils/common/renderUtils';
-  import {getAreaTextByCode} from "../../../components/Form/src/utils/Area";
+import { getAreaTextByCode } from "../../../components/Form/src/utils/Area";
+  import { Tag, Avatar } from 'ant-design-vue';
   const checkedKeys = ref<Array<string | number>>([]);
   //注册model
   const [registerModal, {openModal,setModalProps}] = useModal();

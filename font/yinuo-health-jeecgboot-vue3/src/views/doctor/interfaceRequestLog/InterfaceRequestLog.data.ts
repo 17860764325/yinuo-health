@@ -1,61 +1,62 @@
-import {BasicColumn} from '/@/components/Table';
-import {FormSchema} from '/@/components/Table';
-import { rules} from '/@/utils/helper/validator';
+import { BasicColumn } from '/@/components/Table';
+import { FormSchema } from '/@/components/Table';
+import { rules } from '/@/utils/helper/validator';
 import { render } from '/@/utils/common/renderUtils';
 //列表数据
 export const columns: BasicColumn[] = [
-    {
-        title: '时间',
-        align:"center",
-        dataIndex: 'createTime',
-        width:200
-    },
-    {
-        title: '接口名称',
-        align:"center",
-        dataIndex: 'interfaceName'
-    },
-    {
-        title: '姓名',
-        align:"center",
-        dataIndex: 'patientName'
-    },
-    {
-        title: '具体人员体检号',
-        align:"center",
-        dataIndex: 'patientNo'
-    },
-    {
-        title: '患者 id',
-        align:"center",
-        dataIndex: 'patId'
-    },
-    {
-        title: '请求是否成功',
-        align:"center",
-        dataIndex: 'success',
-        customRender: ({value}) => {
-            return render.renderDict(value, 'success_fail');
-        }
-    },
-    {
-        title: '请求信息',
-        align:"center",
-        dataIndex: 'sendMessage',
-        resizable:true
-    },
-    {
-        title: '接收信息',
-        align:"center",
-        dataIndex: 'receiveMessage',
-        resizable:true
-    },
-    {
-        title: '日志内容',
-        align:"center",
-        dataIndex: 'remark',
-        resizable:true
-    },
+  {
+    title: '时间',
+    align: 'center',
+    dataIndex: 'createTime',
+    width: 200,
+  },
+  {
+    title: '接口名称',
+    align: 'center',
+    dataIndex: 'interfaceName',
+  },
+  {
+    title: '姓名',
+    align: 'center',
+    dataIndex: 'patientName',
+  },
+  {
+    title: '具体人员体检号',
+    align: 'center',
+    dataIndex: 'patientNo',
+  },
+  {
+    title: '患者 id',
+    align: 'center',
+    dataIndex: 'patId',
+  },
+  {
+    title: '请求是否成功',
+    align: 'center',
+    dataIndex: 'success',
+    // customRender: ({value}) => {
+    //     return render.renderDict(value, 'success_fail');
+    // }
+    slots: { customRender: 'success' },
+  },
+  {
+    title: '请求信息',
+    align: 'center',
+    dataIndex: 'sendMessage',
+    resizable: true,
+  },
+  {
+    title: '接收信息',
+    align: 'center',
+    dataIndex: 'receiveMessage',
+    resizable: true,
+  },
+  {
+    title: '日志内容',
+    align: 'center',
+    dataIndex: 'remark',
+    resizable: true,
+  },
 ];
 //查询数据
 export const searchFormSchema: FormSchema[] = [

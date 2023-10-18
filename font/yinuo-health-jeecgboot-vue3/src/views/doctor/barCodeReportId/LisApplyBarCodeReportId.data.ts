@@ -42,7 +42,8 @@ export const columns: BasicColumn[] = [
    {
     title: '报告id',
     align:"center",
-    dataIndex: 'reportId'
+     dataIndex: 'reportId',
+    width:200
    },
    {
     title: '预留字段',
