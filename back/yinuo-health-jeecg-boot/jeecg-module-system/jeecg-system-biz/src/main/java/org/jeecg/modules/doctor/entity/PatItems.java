@@ -31,4 +31,7 @@ public class PatItems {
 
     @ApiModelProperty("项目编码2 ")
     private String cureNo;
+
+    @ApiModelProperty("条码号")
+    private String barCode;
 }

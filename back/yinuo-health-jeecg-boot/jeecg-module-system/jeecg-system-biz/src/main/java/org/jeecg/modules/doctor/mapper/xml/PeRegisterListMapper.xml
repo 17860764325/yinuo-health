@@ -7,10 +7,24 @@
                cur_assay_master.patient_name,
                cur_assay_master.assay_cause,
                cur_assay_master.item_name,
+               cur_assay_master.bar_code,
                pe_register_items.cure_no,
                pe_register_items.compose_item_no
         from cur_assay_master
                  left join pe_register_items on assay_no = cure_no
         where cur_assay_master.patient_no = #{patientNo};
+    </select>
+    <select id="getPatItem" resultType="org.jeecg.modules.doctor.entity.PatItems">
+        select cur_assay_master.patient_no,
+               cur_assay_master.patient_name,
+               cur_assay_master.assay_cause,
+               cur_assay_master.item_name,
+               cur_assay_master.bar_code,
+               pe_register_items.cure_no,
+               pe_register_items.compose_item_no
+        from cur_assay_master
+                 left join pe_register_items on assay_no = cure_no
+        where cur_assay_master.patient_no = #{patientNo}
+          and pe_register_items.compose_item_no = #{itemNo}
     </select>
 </mapper>

@@ -4,6 +4,7 @@ public enum StaticValue {
       ZERO("0","数字 0"),
       ONE("1","数字 1"),
       TWO("2","数字 2"),
+      THREE("3","数字 3"),
       FAIL("fail","失败"),
       SUCCESS("success","成功"),
       MAN("1","男"),

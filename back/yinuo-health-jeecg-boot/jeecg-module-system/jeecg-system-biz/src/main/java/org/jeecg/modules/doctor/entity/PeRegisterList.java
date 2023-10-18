@@ -317,4 +317,24 @@ public class PeRegisterList implements Serializable {
 	@Excel(name = "patId", width = 15)
     @ApiModelProperty(value = "patId")
     private String patId;
+
+    /**众阳系统的患者 类型*/
+	@Excel(name = "patType", width = 15)
+    @ApiModelProperty(value = "patType")
+    private String patType;
+
+    /**是否已经提交LIS检验申请*/
+	@Excel(name = "isLisApply", width = 15)
+    @ApiModelProperty(value = "isLisApply")
+    private String isLisApply;
+
+    /**是否已经条码生成*/
+	@Excel(name = "isBarCodeBuild", width = 15)
+    @ApiModelProperty(value = "isBarCodeBuild")
+    private String isBarCodeBuild;
+
+    /**是否已经查询过报告*/
+	@Excel(name = "isReport", width = 15)
+    @ApiModelProperty(value = "isReport")
+    private String isReport;
 }

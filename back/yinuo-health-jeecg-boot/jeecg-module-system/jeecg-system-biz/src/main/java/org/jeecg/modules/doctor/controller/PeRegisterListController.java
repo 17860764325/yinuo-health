@@ -211,6 +211,21 @@ public class PeRegisterListController extends JeecgController<PeRegisterList, IP
 		return  peRegisterListService.LISApply(lisApplyInfo);
 	}
 
+		/**
+	 * @description: 条码生成
+	 * @param: ids
+	 * @return: org.jeecg.common.api.vo.Result
+	 * @author lhr
+	 * @date: 10/11/23 11:23 AM
+	 */
+	@AutoLog(value = "条码生成")
+	@ApiOperation(value="条码生成", notes="条码生成")
+	@RequiresPermissions("doctor:pe_register_list:barCodeBuild")
+	@GetMapping("/barCodeBuild/{ids}")
+	public Result barCodeBuild(@PathVariable("ids") List<String> ids){
+		return  peRegisterListService.barCodeBuild(ids);
+	}
+
 
 
 	@GetMapping("/newLogTest/{ids}")

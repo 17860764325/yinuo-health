@@ -23,4 +23,13 @@ public interface PeRegisterListMapper extends BaseMapper<PeRegisterList> {
      * @date: 10/16/23 11:54 PM
      */
     List<PatItems> getPatItems(String patientNo);
+
+    /**
+     * @description: 查询患者检查的项目（具体）--本地数据库
+     * @param: patientNo
+     * @return: org.jeecg.modules.doctor.entity.PatItems
+     * @author lhr
+     * @date: 10/16/23 11:54 PM
+     */
+    List<PatItems> getPatItem(String patientNo,String itemNo);
 }

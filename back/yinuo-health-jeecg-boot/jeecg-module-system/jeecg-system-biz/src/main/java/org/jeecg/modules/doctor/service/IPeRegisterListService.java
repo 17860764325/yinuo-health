@@ -29,4 +29,6 @@ public interface IPeRegisterListService extends IService<PeRegisterList> {
     Result newLogTest(List<String> ids);
 
     Result LISApply(LISApplyInfo lisApplyInfo);
+
+    Result barCodeBuild(List<String> ids);
 }
