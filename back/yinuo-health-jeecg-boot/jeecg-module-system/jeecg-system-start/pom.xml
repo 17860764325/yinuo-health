@@ -24,6 +24,11 @@
             <artifactId>jeecg-module-demo</artifactId>
             <version>${jeecgboot.version}</version>
         </dependency>
+        <dependency>
+        <groupId>com.github.jeffreyning</groupId>
+        <artifactId>mybatisplus-plus</artifactId>
+        <version>1.5.1-RELEASE</version>
+    </dependency>
     </dependencies>
 
     <build>

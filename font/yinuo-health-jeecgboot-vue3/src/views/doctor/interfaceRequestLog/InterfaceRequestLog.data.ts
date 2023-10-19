@@ -19,16 +19,19 @@ export const columns: BasicColumn[] = [
     title: '姓名',
     align: 'center',
     dataIndex: 'patientName',
+    width: 100,
   },
   {
     title: '具体人员体检号',
     align: 'center',
     dataIndex: 'patientNo',
+    width: 100,
   },
   {
     title: '患者 id',
     align: 'center',
     dataIndex: 'patId',
+    width: 100,
   },
   {
     title: '请求是否成功',
@@ -38,6 +41,7 @@ export const columns: BasicColumn[] = [
     //     return render.renderDict(value, 'success_fail');
     // }
     slots: { customRender: 'success' },
+    width: 80,
   },
   {
     title: '请求信息',

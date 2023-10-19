@@ -13,11 +13,13 @@ export const columns: BasicColumn[] = [
     title: '姓名',
     align: 'center',
     dataIndex: 'patientName',
+    width: 100,
   },
   {
     title: '患者id',
     align: 'center',
     dataIndex: 'patId',
+    width: 100,
   },
   {
     title: 'LIS检验申请',
@@ -27,6 +29,7 @@ export const columns: BasicColumn[] = [
     //   return render.renderDict(value, 'patient_status');
     // },
     slots: { customRender: 'isLisApply' },
+    width: 100,
   },
   {
     title: '条码生成',
@@ -36,6 +39,7 @@ export const columns: BasicColumn[] = [
     //   return render.renderDict(value, 'patient_status');
     // },
     slots: { customRender: 'isBarCodeBuild' },
+    width: 100,
   },
   {
     title: '报告查询',
@@ -45,41 +49,49 @@ export const columns: BasicColumn[] = [
     //   return render.renderDict(value, 'patient_status');
     // },
     slots: { customRender: 'isReport' },
+    width: 100,
   },
   {
     title: '体检时间',
     align: 'center',
     dataIndex: 'peDate',
+    width: 200,
   },
   {
     title: '性别',
     align: 'center',
     dataIndex: 'sex',
+    width: 70,
   },
   {
     title: '生日',
     align: 'center',
     dataIndex: 'birthday',
+    width: 200,
   },
   {
     title: '年龄',
     align: 'center',
     dataIndex: 'age',
+    width: 70,
   },
   {
     title: '身份证号',
     align: 'center',
     dataIndex: 'personNo',
+    width: 200,
   },
   {
     title: '地址',
     align: 'center',
     dataIndex: 'address',
+    width: 200,
   },
   {
     title: '手机号',
     align: 'center',
     dataIndex: 'telphone',
+    width: 150,
   },
 ];
 //查询数据

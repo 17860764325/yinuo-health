@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.jeecg.modules.doctor.mapper.PeReportDepartmentDetailMapper">
+    <insert id="add" parameterType="org.jeecg.modules.doctor.entity.PeReportDepartmentDetail">
+        insert into pe_report_department_detail (patient_no, department_id, compose_item_no, item_no, pe_result,
+                                                 normal_up, normal_down, normal_print,report_date)
+        values (#{patientNo}, #{departmentId}, #{composeItemNo},
+                #{itemNo}, #{peResult}, #{normalUp},
+                #{normalDown}, #{normalPrint},#{reportDate})
+    </insert>
+
+    <insert id="addUp" parameterType="org.jeecg.modules.doctor.entity.PeReportDepartmentDetail">
+        insert into pe_report_department_detail (patient_no, department_id, compose_item_no, item_no, pe_result,normal_up, normal_print,report_date)
+        values (#{patientNo}, #{departmentId}, #{composeItemNo},
+                #{itemNo}, #{peResult},  #{normalUp}, #{normalPrint},#{reportDate})
+    </insert>
+
+    <insert id="addDown" parameterType="org.jeecg.modules.doctor.entity.PeReportDepartmentDetail">
+        insert into pe_report_department_detail (patient_no, department_id, compose_item_no, item_no, pe_result,normal_down, normal_print,report_date)
+        values (#{patientNo}, #{departmentId}, #{composeItemNo},
+                #{itemNo}, #{peResult},  #{normalDown}, #{normalPrint},#{reportDate})
+    </insert>
+
+        <insert id="addNoUpDown" parameterType="org.jeecg.modules.doctor.entity.PeReportDepartmentDetail">
+        insert into pe_report_department_detail (patient_no, department_id, compose_item_no, item_no, pe_result, normal_print,report_date)
+        values (#{patientNo}, #{departmentId}, #{composeItemNo},
+                #{itemNo}, #{peResult},  #{normalPrint},#{reportDate})
+    </insert>
+
+    <update id="edit" parameterType="org.jeecg.modules.doctor.entity.PeReportDepartmentDetail">
+        UPDATE pe_report_department_detail
+        SET   pe_result = #{peResult} , normal_up = #{normalUp} , normal_down = #{normalDown} , normal_print = #{normalPrint} , report_date = #{reportDate}
+        WHERE (patient_no = #{patientNo} and department_id = #{departmentId} and compose_item_no = #{composeItemNo} and item_no = #{itemNo})
+    </update>
+
+    <update id="editDown" parameterType="org.jeecg.modules.doctor.entity.PeReportDepartmentDetail">
+        UPDATE pe_report_department_detail
+        SET   pe_result = #{peResult} ,  normal_down = #{normalDown} , normal_print = #{normalPrint} , report_date = #{reportDate}
+        WHERE (patient_no = #{patientNo} and department_id = #{departmentId} and compose_item_no = #{composeItemNo} and item_no = #{itemNo})
+    </update>
+
+    <update id="edioUp" parameterType="org.jeecg.modules.doctor.entity.PeReportDepartmentDetail">
+        UPDATE pe_report_department_detail
+        SET   pe_result = #{peResult} , normal_up = #{normalUp}  , normal_print = #{normalPrint} , report_date = #{reportDate}
+        WHERE (patient_no = #{patientNo} and department_id = #{departmentId} and compose_item_no = #{composeItemNo} and item_no = #{itemNo})
+    </update>
+
+
+    <update id="editNoUpDown" parameterType="org.jeecg.modules.doctor.entity.PeReportDepartmentDetail">
+        UPDATE pe_report_department_detail
+        SET   pe_result = #{peResult} , normal_print = #{normalPrint} , report_date = #{reportDate}
+        WHERE (patient_no = #{patientNo} and department_id = #{departmentId} and compose_item_no = #{composeItemNo} and item_no = #{itemNo})
+    </update>
+</mapper>

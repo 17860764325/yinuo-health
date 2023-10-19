@@ -11,12 +11,12 @@ export const columns: BasicColumn[] = [
         dataIndex: 'labItemId'
     },
     {
-        title: '自己系统的项目号',
+        title: '接口传输的项目号',
         align:"center",
         dataIndex: 'mineProjectNo'
     },
     {
-        title: '预留字段',
+        title: '项目号',
         align:"center",
         dataIndex: 'mineItemRemork'
     },

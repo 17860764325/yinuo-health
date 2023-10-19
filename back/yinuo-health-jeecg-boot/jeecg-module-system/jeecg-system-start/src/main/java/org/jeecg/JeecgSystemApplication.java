@@ -1,5 +1,6 @@
 package org.jeecg;
 
+import com.github.jeffreyning.mybatisplus.conf.EnableMPP;
 import lombok.extern.slf4j.Slf4j;
 import org.jeecg.common.util.oConvertUtils;
 import org.springframework.boot.SpringApplication;

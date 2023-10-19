@@ -8,10 +8,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.modules.doctor.entity.CheckProject;
 import org.jeecg.modules.doctor.entity.CheckProjectDetail;
+import org.jeecg.modules.doctor.entity.PeItems;
 import org.jeecg.modules.doctor.mapper.CheckProjectDetailMapper;
 import org.jeecg.modules.doctor.mapper.CheckProjectMapper;
 import org.jeecg.modules.doctor.service.ICheckProjectDetailService;
 import org.jeecg.modules.doctor.service.ICheckProjectService;
+import org.jeecg.modules.doctor.service.IPeItemsService;
 import org.jeecg.modules.doctor.util.InterfaceInfo;
 import org.jeecg.modules.doctor.util.RequestUtil;
 import org.jeecg.modules.doctor.vo.CheckProjectResponse;
@@ -24,6 +26,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Collection;
+import java.util.stream.Collectors;
 
 /**
  * @Description: 项目表
@@ -41,6 +44,9 @@ public class CheckProjectServiceImpl extends ServiceImpl<CheckProjectMapper, Che
 
     @Autowired
     private ICheckProjectDetailService checkProjectDetailService;
+
+    @Autowired
+    private IPeItemsService peItemsService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -538,7 +544,7 @@ public class CheckProjectServiceImpl extends ServiceImpl<CheckProjectMapper, Che
             if (JSONUtil.isJson(res)) {
                 // 将 json 字符串 解析为 实体类
                 response = JSONUtil.toBean(res, CheckProjectResponse.class);
-                if (!response.getSuccess()){
+                if (!response.getSuccess()) {
                     return Result.error("接口请求失败！" + response.getMessage());
                 }
             }
@@ -546,9 +552,11 @@ public class CheckProjectServiceImpl extends ServiceImpl<CheckProjectMapper, Che
             return Result.error(e.getMessage());
         }
         // 判断返回信息是否为空
-        if (BeanUtil.isEmpty(response)||CollUtil.isEmpty(response.getData())) {
+        if (BeanUtil.isEmpty(response) || CollUtil.isEmpty(response.getData())) {
             return Result.error("接口返回数据为空，维护失败！");
         }
+        // pe_items 对应详情表用到的所有的数据
+        List<PeItems> peItems = peItemsService.list();
         // 请求返回的主表数据
         List<CheckProject> responseCheckProjectList = new ArrayList<>();
         // 请求返回的字表数据
@@ -566,6 +574,12 @@ public class CheckProjectServiceImpl extends ServiceImpl<CheckProjectMapper, Che
                         // 判断详情表是否为空
                         if (BeanUtil.isNotEmpty(checkProjectDetail)) {
                             // 存放到详情数据表
+                            // 根据返回的名项目编码查询对应的详细数据
+                            // 维护详情对应到的数据
+                            List<PeItems> collect = peItems.stream().filter(item -> item.getInterfaceNo().contains(checkProjectDetail.getItemNo())).collect(Collectors.toList());
+                            if (CollUtil.isNotEmpty(collect)) {
+                                checkProjectDetail.setMineProjectNo(collect.get(0).getItemNo());
+                            }
                             checkProjectDetail.setCheckProjectId(datum.getLabItemId());
                             responseCheckProjectDetailList.add(checkProjectDetail);
                         }
@@ -621,7 +635,7 @@ public class CheckProjectServiceImpl extends ServiceImpl<CheckProjectMapper, Che
         // 创建
         checkProjectDetailService.saveBatch(responseCheckProjectDetailList);
 
-        return  Result.OK("同步成功！");
+        return Result.OK("同步成功！");
     }
 
 }

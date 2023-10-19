@@ -7,15 +7,15 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import net.sf.saxon.om.Item;
+import org.apache.poi.ss.formula.functions.Offset;
 import org.checkerframework.checker.units.qual.A;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.modules.doctor.entity.*;
 import org.jeecg.modules.doctor.entity.VO.BaseResponseEntity;
 import org.jeecg.modules.doctor.mapper.PeRegisterListMapper;
-import org.jeecg.modules.doctor.service.ICheckProjectService;
-import org.jeecg.modules.doctor.service.ICurAssayMasterService;
-import org.jeecg.modules.doctor.service.ILisApplyBarCodeReportIdService;
-import org.jeecg.modules.doctor.service.IPeRegisterListService;
+import org.jeecg.modules.doctor.mapper.PeReportDepartmentDetailMapper;
+import org.jeecg.modules.doctor.service.*;
 import org.jeecg.modules.doctor.util.*;
 import org.jeecg.modules.doctor.vo.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,8 +25,10 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static cn.hutool.core.date.DatePattern.NORM_DATETIME_FORMAT;
+import static java.lang.Double.parseDouble;
 
 /**
  * @Description: 人员信息查询
@@ -89,6 +91,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
     private static final String START_TIME = "startTime";
     private static final String END_TIME = "endTime";
     private static final String BAR_CODE_LIST = "barcodeList";
+    private static final String REPORT_ID = "reportId";
 
     @Autowired
     private LogUtil logUtil;
@@ -100,10 +103,22 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
     private ICheckProjectService checkProjectService;
 
     @Autowired
+    private ICheckProjectDetailService checkProjectDetailService;
+
+    @Autowired
     private ICurAssayMasterService curAssayMasterService;
 
     @Autowired
     private ILisApplyBarCodeReportIdService lisApplyBarCodeReportIdService;
+
+    @Autowired
+    private IReportDetailService reportDetailService;
+
+    @Autowired
+    private IPeReportDepartmentDetailService peReportDepartmentDetailService;
+
+    @Autowired
+    private PeReportDepartmentDetailMapper peReportDepartmentDetailMapper;
 
 
     /**
@@ -751,13 +766,16 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
         StringBuffer resultAll = new StringBuffer();
         // 查询人员信息
         List<PeRegisterList> peRegisterLists = this.listByIds(ids);
+        // 获取所有的主表项目和子项目checkProject表中获取
+        List<CheckProject> checkProjectList = checkProjectService.list();
+        List<CheckProjectDetail> checkProjectDetailList = checkProjectDetailService.list();
         // 循环数据进行操作
         for (PeRegisterList peRegister : peRegisterLists) {
             try {
                 // 报告ID查询和维护
                 resultAll.append(reportIdSearch(peRegister));
                 // 报告内容查询和维护
-                resultAll.append(reportDetailSearch(peRegister));
+                resultAll.append(reportDetailSearch(peRegister, checkProjectList, checkProjectDetailList));
             } catch (Exception e) {
                 resultAll.append("患者：" + peRegister.getPatientName() + e.getMessage());
             }
@@ -766,7 +784,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
     }
 
     /**
-     * @description:
+     * @description: 报告ID查询和维护
      * @param: peRegister
      * @return: java.lang.StringBuffer
      * @author lhr
@@ -888,8 +906,8 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                     "            \"sampleClassName\": \"血清\"\n" +
                     "        },\n" +
                     "        {\n" +
-                    "            \"reportId\": \"20231006040853009\",\n" +
-                    "            \"keynoGroup\": \"20231006040853009\",\n" +
+                    "            \"reportId\": \"20231006095353001\",\n" +
+                    "            \"keynoGroup\": \"20231006095353001\",\n" +
                     "            \"patId\": \"2156980\",\n" +
                     "            \"barCode\": \"2310051053\",\n" +
                     "            \"patName\": \"22\",\n" +
@@ -960,31 +978,1867 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
     }
 
     /**
-     * @description:
+     * @description: 报告内容查询和维护
      * @param: peRegister
      * @return: java.lang.StringBuffer
      * @author lhr
      * @date: 2023/10/18 23:55
      */
     @Transactional
-    public StringBuffer reportDetailSearch(PeRegisterList peRegister) {
+    public StringBuffer reportDetailSearch(PeRegisterList peRegister, List<CheckProject> checkProjectList, List<CheckProjectDetail> checkProjectDetailList) throws Exception {
         StringBuffer result = new StringBuffer("报告详情维护失败！");
         LogUtilNew log = LogUtilNew.getInstance(REPORT_DETAIL_SEARCH, peRegister);
         try {
             // 组装参数，获取报告id
-
+            Map<String, Object> paramsMap = new HashMap<>();
+            // 获取报告单id，根据条码关系表维护的id查询
+            List<LisApplyBarCodeReportId> list = lisApplyBarCodeReportIdService.list(new LambdaQueryWrapper<LisApplyBarCodeReportId>().eq(LisApplyBarCodeReportId::getPatientNo, peRegister.getPatientNo()));
+            // 判断
+            if (CollUtil.isEmpty(list)) {
+                throw new RuntimeException("查询患者的报告ID为空，无法生成报告！");
+            }
+            // 创建变量并循环赋值
+            StringBuffer reportId = new StringBuffer();
+            // 赋值
+            for (LisApplyBarCodeReportId lisApplyBarCodeReportId : list) {
+                if (StrUtil.isNotEmpty(lisApplyBarCodeReportId.getReportId())) {
+                    reportId.append(lisApplyBarCodeReportId.getReportId() + ",");
+                }
+            }
+            // 报告单id
+            paramsMap.put(REPORT_ID, reportId.toString());
+            // 记录日志
+            log.setSendMessage(JSONUtil.parse(paramsMap).toString());
             // 发送请求
-
-            // 维护检验信息
-
-            // 维护人员状态，报告查询维护：已完成
-
+//            String res = RequestUtil.go(REPORT_DETAIL_SEARCH.getUrl(), REPORT_DETAIL_SEARCH.getRequestType(), paramsMap);
+            // 假数据
+            String res = "{\n" +
+                    "  \"success\" : true,\n" +
+                    "  \"decorate\" : true,\n" +
+                    "  \"code\" : \"0000\",\n" +
+                    "  \"message\" : \"成功\",\n" +
+                    "  \"data\" : [ {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357213282306\",\n" +
+                    "    \"itemId\" : \"20000364\",\n" +
+                    "    \"itemNo\" : \"GLU（U）\",\n" +
+                    "    \"itemName\" : \"葡萄糖\",\n" +
+                    "    \"itemEname\" : \"GLU\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"mmol/L\",\n" +
+                    "    \"itemRange\" : \"阴性\",\n" +
+                    "    \"itemRangeHigh\" : null,\n" +
+                    "    \"itemRangeLow\" : null,\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"-\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 1,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : 1,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:27:43\",\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357414608903\",\n" +
+                    "    \"itemId\" : \"20000799\",\n" +
+                    "    \"itemNo\" : \"URO\",\n" +
+                    "    \"itemName\" : \"尿胆原\",\n" +
+                    "    \"itemEname\" : \"URO\",\n" +
+                    "    \"itemRangeType\" : \"6\",\n" +
+                    "    \"unit\" : \"umol/L\",\n" +
+                    "    \"itemRange\" : \"阴性\",\n" +
+                    "    \"itemRangeHigh\" : null,\n" +
+                    "    \"itemRangeLow\" : null,\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"-\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 3,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:27:43\",\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357414608905\",\n" +
+                    "    \"itemId\" : \"20000167\",\n" +
+                    "    \"itemNo\" : \"BIL\",\n" +
+                    "    \"itemName\" : \"胆红素\",\n" +
+                    "    \"itemEname\" : \"BIL\",\n" +
+                    "    \"itemRangeType\" : \"6\",\n" +
+                    "    \"unit\" : \"umol/L\",\n" +
+                    "    \"itemRange\" : \"阴性\",\n" +
+                    "    \"itemRangeHigh\" : null,\n" +
+                    "    \"itemRangeLow\" : null,\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"-\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 4,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:27:47\",\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357414608907\",\n" +
+                    "    \"itemId\" : \"20000510\",\n" +
+                    "    \"itemNo\" : \"KET\",\n" +
+                    "    \"itemName\" : \"酮体\",\n" +
+                    "    \"itemEname\" : \"KET\",\n" +
+                    "    \"itemRangeType\" : \"6\",\n" +
+                    "    \"unit\" : \"mg/L\",\n" +
+                    "    \"itemRange\" : \"阴性\",\n" +
+                    "    \"itemRangeHigh\" : null,\n" +
+                    "    \"itemRangeLow\" : null,\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"-\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 5,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:27:48\",\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357414608910\",\n" +
+                    "    \"itemId\" : \"20000717\",\n" +
+                    "    \"itemNo\" : \"SG\",\n" +
+                    "    \"itemName\" : \"比重\",\n" +
+                    "    \"itemEname\" : \"SG\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"\",\n" +
+                    "    \"itemRange\" : \"1.015~1.025\",\n" +
+                    "    \"itemRangeHigh\" : \"1.025\",\n" +
+                    "    \"itemRangeLow\" : \"1.015\",\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"1.016\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 6,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:27:52\",\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357414608914\",\n" +
+                    "    \"itemId\" : \"20000168\",\n" +
+                    "    \"itemNo\" : \"BLD\",\n" +
+                    "    \"itemName\" : \"尿潜血\",\n" +
+                    "    \"itemEname\" : \"BLD\",\n" +
+                    "    \"itemRangeType\" : \"6\",\n" +
+                    "    \"unit\" : \"mg/L\",\n" +
+                    "    \"itemRange\" : \"阴性\",\n" +
+                    "    \"itemRangeHigh\" : null,\n" +
+                    "    \"itemRangeLow\" : null,\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"-\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 8,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:27:54\",\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357414608919\",\n" +
+                    "    \"itemId\" : \"20000637\",\n" +
+                    "    \"itemNo\" : \"PH\",\n" +
+                    "    \"itemName\" : \"酸碱度\",\n" +
+                    "    \"itemEname\" : \"PH\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"\",\n" +
+                    "    \"itemRange\" : \"5.4~8.0\",\n" +
+                    "    \"itemRangeHigh\" : \"8.0\",\n" +
+                    "    \"itemRangeLow\" : \"5.4\",\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"7.2\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 10,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:28:00\",\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357414608923\",\n" +
+                    "    \"itemId\" : \"20000657\",\n" +
+                    "    \"itemNo\" : \"PRO\",\n" +
+                    "    \"itemName\" : \"蛋白质\",\n" +
+                    "    \"itemEname\" : \"PRO\",\n" +
+                    "    \"itemRangeType\" : \"6\",\n" +
+                    "    \"unit\" : \"g/L\",\n" +
+                    "    \"itemRange\" : \"阴性\",\n" +
+                    "    \"itemRangeHigh\" : null,\n" +
+                    "    \"itemRangeLow\" : null,\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"-\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 11,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:28:04\",\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357448163333\",\n" +
+                    "    \"itemId\" : \"20000598\",\n" +
+                    "    \"itemNo\" : \"NIT\",\n" +
+                    "    \"itemName\" : \"亚硝酸盐\",\n" +
+                    "    \"itemEname\" : \"NIT\",\n" +
+                    "    \"itemRangeType\" : \"6\",\n" +
+                    "    \"unit\" : \"\",\n" +
+                    "    \"itemRange\" : \"阴性\",\n" +
+                    "    \"itemRangeHigh\" : null,\n" +
+                    "    \"itemRangeLow\" : null,\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"-\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 12,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:28:05\",\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357448163337\",\n" +
+                    "    \"itemId\" : \"20000537\",\n" +
+                    "    \"itemNo\" : \"LEU\",\n" +
+                    "    \"itemName\" : \"白细胞\",\n" +
+                    "    \"itemEname\" : \"LEU\",\n" +
+                    "    \"itemRangeType\" : \"6\",\n" +
+                    "    \"unit\" : \"Leu/L\",\n" +
+                    "    \"itemRange\" : \"阴性\",\n" +
+                    "    \"itemRangeHigh\" : null,\n" +
+                    "    \"itemRangeLow\" : null,\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"-\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 13,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:28:07\",\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357448163341\",\n" +
+                    "    \"itemId\" : \"20000803\",\n" +
+                    "    \"itemNo\" : \"VC\",\n" +
+                    "    \"itemName\" : \"维生素C\",\n" +
+                    "    \"itemEname\" : \"VC\",\n" +
+                    "    \"itemRangeType\" : \"6\",\n" +
+                    "    \"unit\" : \"mmol/L\",\n" +
+                    "    \"itemRange\" : \"阴性\",\n" +
+                    "    \"itemRangeHigh\" : null,\n" +
+                    "    \"itemRangeLow\" : null,\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"-\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 14,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:28:09\",\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357448163345\",\n" +
+                    "    \"itemId\" : \"20000203\",\n" +
+                    "    \"itemNo\" : \"cbxb\",\n" +
+                    "    \"itemName\" : \"镜检白细胞\",\n" +
+                    "    \"itemEname\" : \"cbxb\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"个/HP\",\n" +
+                    "    \"itemRange\" : \"0~5\",\n" +
+                    "    \"itemRangeHigh\" : \"5\",\n" +
+                    "    \"itemRangeLow\" : \"0\",\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"未见\",\n" +
+                    "    \"mark\" : null,\n" +
+                    "    \"sno\" : 15,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : null,\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357448163349\",\n" +
+                    "    \"itemId\" : \"20000255\",\n" +
+                    "    \"itemNo\" : \"chxb\",\n" +
+                    "    \"itemName\" : \"镜检红细胞\",\n" +
+                    "    \"itemEname\" : \"chxb\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"个/HP\",\n" +
+                    "    \"itemRange\" : \"0~5\",\n" +
+                    "    \"itemRangeHigh\" : \"5\",\n" +
+                    "    \"itemRangeLow\" : \"0\",\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"未见\",\n" +
+                    "    \"mark\" : null,\n" +
+                    "    \"sno\" : 16,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : null,\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006023853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+                    "    \"rptDetailId\" : \"6100734357448163353\",\n" +
+                    "    \"itemId\" : \"20000368\",\n" +
+                    "    \"itemNo\" : \"gx\",\n" +
+                    "    \"itemName\" : \"管型\",\n" +
+                    "    \"itemEname\" : \"gx\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"个/LP\",\n" +
+                    "    \"itemRange\" : \"0~0\",\n" +
+                    "    \"itemRangeHigh\" : \"0\",\n" +
+                    "    \"itemRangeLow\" : \"0\",\n" +
+                    "    \"labItemNo\" : \"1721009\",\n" +
+                    "    \"itemResult\" : \"0\",\n" +
+                    "    \"mark\" : null,\n" +
+                    "    \"sno\" : 17,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : null,\n" +
+                    "    \"sampleClassId\" : \"20000113\",\n" +
+                    "    \"sampleClassName\" : \"尿液\"\n" +
+                    "  }," +
+//                    " {\n" +
+//                    "    \"reportId\" : \"20231006023853001\",\n" +
+//                    "    \"keynoGroup\" : \"20231006023853001\",\n" +
+//                    "    \"rptDetailId\" : \"6100734357448163357\",\n" +
+//                    "    \"itemId\" : \"20001036\",\n" +
+//                    "    \"itemNo\" : \"尿液上皮细胞\",\n" +
+//                    "    \"itemName\" : \"上皮细胞\",\n" +
+//                    "    \"itemEname\" : \"尿液上皮细胞\",\n" +
+//                    "    \"itemRangeType\" : \"6\",\n" +
+//                    "    \"unit\" : \"\",\n" +
+//                    "    \"itemRange\" : \"阴性\",\n" +
+//                    "    \"itemRangeHigh\" : null,\n" +
+//                    "    \"itemRangeLow\" : null,\n" +
+//                    "    \"labItemNo\" : \"1721009\",\n" +
+//                    "    \"itemResult\" : \"-\",\n" +
+//                    "    \"mark\" : \"\",\n" +
+//                    "    \"sno\" : 18,\n" +
+//                    "    \"germNo\" : null,\n" +
+//                    "    \"germName\" : null,\n" +
+//                    "    \"yinYangNature\" : null,\n" +
+//                    "    \"expertOpinion\" : null,\n" +
+//                    "    \"reportNotes\" : null,\n" +
+//                    "    \"filingMemo\" : null,\n" +
+//                    "    \"smearMemo\" : null,\n" +
+//                    "    \"pageType\" : null,\n" +
+//                    "    \"antList\" : null,\n" +
+//                    "    \"flagCritical\" : 0,\n" +
+//                    "    \"collectTime\" : null,\n" +
+//                    "    \"resultTime\" : \"2023-10-06 08:28:16\",\n" +
+//                    "    \"sampleClassId\" : \"20000113\",\n" +
+//                    "    \"sampleClassName\" : \"尿液\"\n" +
+//                    "  }, " +
+                    "{\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893487804420\",\n" +
+                    "    \"itemId\" : \"20000130\",\n" +
+                    "    \"itemNo\" : \"ALT\",\n" +
+                    "    \"itemName\" : \"丙氨酸氨基转移酶\",\n" +
+                    "    \"itemEname\" : \"ALT\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"U/L\",\n" +
+                    "    \"itemRange\" : \"0~50\",\n" +
+                    "    \"itemRangeHigh\" : \"50\",\n" +
+                    "    \"itemRangeLow\" : \"0\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"32.50\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 1,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:37:28\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131011\",\n" +
+                    "    \"itemId\" : \"20000156\",\n" +
+                    "    \"itemNo\" : \"AST\",\n" +
+                    "    \"itemName\" : \"天门冬氨酸氨基转移酶\",\n" +
+                    "    \"itemEname\" : \"AST\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"U/L\",\n" +
+                    "    \"itemRange\" : \"0~40\",\n" +
+                    "    \"itemRangeHigh\" : \"40\",\n" +
+                    "    \"itemRangeLow\" : \"0\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"29.80\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 2,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:37:36\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131014\",\n" +
+                    "    \"itemId\" : \"20000753\",\n" +
+                    "    \"itemNo\" : \"TBIL\",\n" +
+                    "    \"itemName\" : \"总胆红素\",\n" +
+                    "    \"itemEname\" : \"TBIL\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"umol/L\",\n" +
+                    "    \"itemRange\" : \"0~20.0\",\n" +
+                    "    \"itemRangeHigh\" : \"20.0\",\n" +
+                    "    \"itemRangeLow\" : \"0\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"16.20\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 3,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:37:40\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131018\",\n" +
+                    "    \"itemId\" : \"20000299\",\n" +
+                    "    \"itemNo\" : \"DBIL\",\n" +
+                    "    \"itemName\" : \"直接胆红素\",\n" +
+                    "    \"itemEname\" : \"DBIL\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"umol/L\",\n" +
+                    "    \"itemRange\" : \"0~7.0\",\n" +
+                    "    \"itemRangeHigh\" : \"7.0\",\n" +
+                    "    \"itemRangeLow\" : \"0\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"3.90\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 4,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:37:46\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131021\",\n" +
+                    "    \"itemId\" : \"20000774\",\n" +
+                    "    \"itemNo\" : \"TP\",\n" +
+                    "    \"itemName\" : \"总蛋白\",\n" +
+                    "    \"itemEname\" : \"TP\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"g/L\",\n" +
+                    "    \"itemRange\" : \"65~85\",\n" +
+                    "    \"itemRangeHigh\" : \"85\",\n" +
+                    "    \"itemRangeLow\" : \"65\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"80.20\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 5,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:37:54\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131025\",\n" +
+                    "    \"itemId\" : \"20000126\",\n" +
+                    "    \"itemNo\" : \"ALB\",\n" +
+                    "    \"itemName\" : \"白蛋白\",\n" +
+                    "    \"itemEname\" : \"ALB\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"g/L\",\n" +
+                    "    \"itemRange\" : \"40~55\",\n" +
+                    "    \"itemRangeHigh\" : \"55\",\n" +
+                    "    \"itemRangeLow\" : \"40\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"49.00\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 6,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:37:56\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131030\",\n" +
+                    "    \"itemId\" : \"20000913\",\n" +
+                    "    \"itemNo\" : \"γ-GT\",\n" +
+                    "    \"itemName\" : \"γ-谷氨酰转肽酶\",\n" +
+                    "    \"itemEname\" : \"GGT\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"U/L\",\n" +
+                    "    \"itemRange\" : \"0~50\",\n" +
+                    "    \"itemRangeHigh\" : \"50\",\n" +
+                    "    \"itemRangeLow\" : \"0\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"35.00\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 7,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:38:01\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131034\",\n" +
+                    "    \"itemId\" : \"20000798\",\n" +
+                    "    \"itemNo\" : \"Urea\",\n" +
+                    "    \"itemName\" : \"尿素\",\n" +
+                    "    \"itemEname\" : \"Urea\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"mmol/L\",\n" +
+                    "    \"itemRange\" : \"3.1~8.0\",\n" +
+                    "    \"itemRangeHigh\" : \"8.0\",\n" +
+                    "    \"itemRangeLow\" : \"3.1\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"5.1\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 8,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:38:06\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131038\",\n" +
+                    "    \"itemId\" : \"20000283\",\n" +
+                    "    \"itemNo\" : \"Cr\",\n" +
+                    "    \"itemName\" : \"肌酐\",\n" +
+                    "    \"itemEname\" : \"Cr\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"umol/L\",\n" +
+                    "    \"itemRange\" : \"57~97\",\n" +
+                    "    \"itemRangeHigh\" : \"97\",\n" +
+                    "    \"itemRangeLow\" : \"57\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"65.20\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 10,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:38:15\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131042\",\n" +
+                    "    \"itemId\" : \"20000794\",\n" +
+                    "    \"itemNo\" : \"UA\",\n" +
+                    "    \"itemName\" : \"尿酸\",\n" +
+                    "    \"itemEname\" : \"UA\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"umol/L\",\n" +
+                    "    \"itemRange\" : \"90~428\",\n" +
+                    "    \"itemRangeHigh\" : \"428\",\n" +
+                    "    \"itemRangeLow\" : \"90\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"110.30\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 12,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:38:27\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131046\",\n" +
+                    "    \"itemId\" : \"20000755\",\n" +
+                    "    \"itemNo\" : \"TCH\",\n" +
+                    "    \"itemName\" : \"总胆固醇\",\n" +
+                    "    \"itemEname\" : \"CHOL\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"mmol/L\",\n" +
+                    "    \"itemRange\" : \"0~5.20\",\n" +
+                    "    \"itemRangeHigh\" : \"5.20\",\n" +
+                    "    \"itemRangeLow\" : \"0\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"3.40\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 13,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:38:36\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131050\",\n" +
+                    "    \"itemId\" : \"20000761\",\n" +
+                    "    \"itemNo\" : \"TG\",\n" +
+                    "    \"itemName\" : \"甘油三脂\",\n" +
+                    "    \"itemEname\" : \"TG\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"mmol/L\",\n" +
+                    "    \"itemRange\" : \"0.20~1.80\",\n" +
+                    "    \"itemRangeHigh\" : \"1.80\",\n" +
+                    "    \"itemRangeLow\" : \"0.20\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"1.06\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 14,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:38:40\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131054\",\n" +
+                    "    \"itemId\" : \"20000397\",\n" +
+                    "    \"itemNo\" : \"HDL-C\",\n" +
+                    "    \"itemName\" : \"高密度脂蛋白\",\n" +
+                    "    \"itemEname\" : \"HDL-C\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"mmol/L\",\n" +
+                    "    \"itemRange\" : \"0.80~2.04\",\n" +
+                    "    \"itemRangeHigh\" : \"2.04\",\n" +
+                    "    \"itemRangeLow\" : \"0.80\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"1.00\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 15,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:38:50\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131058\",\n" +
+                    "    \"itemId\" : \"20000536\",\n" +
+                    "    \"itemNo\" : \"LDL-C\",\n" +
+                    "    \"itemName\" : \"低密度脂蛋白\",\n" +
+                    "    \"itemEname\" : \"LDL-C\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"mmol/L\",\n" +
+                    "    \"itemRange\" : \"2.00~3.60\",\n" +
+                    "    \"itemRangeHigh\" : \"3.60\",\n" +
+                    "    \"itemRangeLow\" : \"2.00\",\n" +
+                    "    \"labItemNo\" : \"1506431\",\n" +
+                    "    \"itemResult\" : \"2.40\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 16,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:39:06\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006040853001\",\n" +
+                    "    \"keynoGroup\" : \"20231006040853001\",\n" +
+                    "    \"rptDetailId\" : \"6100753893689131062\",\n" +
+                    "    \"itemId\" : \"20000171\",\n" +
+                    "    \"itemNo\" : \"BS\",\n" +
+                    "    \"itemName\" : \"血糖\",\n" +
+                    "    \"itemEname\" : \"GLU\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"mmol/L\",\n" +
+                    "    \"itemRange\" : \"3.9~6.1\",\n" +
+                    "    \"itemRangeHigh\" : \"6.1\",\n" +
+                    "    \"itemRangeLow\" : \"3.9\",\n" +
+                    "    \"labItemNo\" : \"78016\",\n" +
+                    "    \"itemResult\" : \"5.02\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 17,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 08:39:13\",\n" +
+                    "    \"sampleClassId\" : \"20000207\",\n" +
+                    "    \"sampleClassName\" : \"血清\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491456831490\",\n" +
+                    "    \"itemId\" : \"20000807\",\n" +
+                    "    \"itemNo\" : \"WBC\",\n" +
+                    "    \"itemName\" : \"白细胞计数\",\n" +
+                    "    \"itemEname\" : \"WBC\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"10^9/L\",\n" +
+                    "    \"itemRange\" : \"3.5~9.5\",\n" +
+                    "    \"itemRangeHigh\" : \"9.5\",\n" +
+                    "    \"itemRangeLow\" : \"3.5\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"4.62\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 1,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:06\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603649\",\n" +
+                    "    \"itemId\" : \"20000687\",\n" +
+                    "    \"itemNo\" : \"RBC\",\n" +
+                    "    \"itemName\" : \"红细胞计数\",\n" +
+                    "    \"itemEname\" : \"RBC\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"10^12/L\",\n" +
+                    "    \"itemRange\" : \"4.3~5.8\",\n" +
+                    "    \"itemRangeHigh\" : \"5.8\",\n" +
+                    "    \"itemRangeLow\" : \"4.3\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"5.45\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 2,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:06\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603652\",\n" +
+                    "    \"itemId\" : \"20000401\",\n" +
+                    "    \"itemNo\" : \"HGB\",\n" +
+                    "    \"itemName\" : \"血红蛋白浓度\",\n" +
+                    "    \"itemEname\" : \"HGB\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"g/L\",\n" +
+                    "    \"itemRange\" : \"130~175\",\n" +
+                    "    \"itemRangeHigh\" : \"175\",\n" +
+                    "    \"itemRangeLow\" : \"130\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"151.00\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 3,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:04\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603656\",\n" +
+                    "    \"itemId\" : \"20000393\",\n" +
+                    "    \"itemNo\" : \"HCT\",\n" +
+                    "    \"itemName\" : \"红细胞压积\",\n" +
+                    "    \"itemEname\" : \"HCT\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"%\",\n" +
+                    "    \"itemRange\" : \"40~50\",\n" +
+                    "    \"itemRangeHigh\" : \"50\",\n" +
+                    "    \"itemRangeLow\" : \"40\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"45.3\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 6,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:04\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603660\",\n" +
+                    "    \"itemId\" : \"20000645\",\n" +
+                    "    \"itemNo\" : \"PLT\",\n" +
+                    "    \"itemName\" : \"血小板\",\n" +
+                    "    \"itemEname\" : \"PLT\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"10^9/L\",\n" +
+                    "    \"itemRange\" : \"125~350\",\n" +
+                    "    \"itemRangeHigh\" : \"350\",\n" +
+                    "    \"itemRangeLow\" : \"125\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"176\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 7,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:05\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603664\",\n" +
+                    "    \"itemId\" : \"20000557\",\n" +
+                    "    \"itemNo\" : \"LYM%\",\n" +
+                    "    \"itemName\" : \"淋巴细胞百分数\",\n" +
+                    "    \"itemEname\" : \"LYM%\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"%\",\n" +
+                    "    \"itemRange\" : \"20~40\",\n" +
+                    "    \"itemRangeHigh\" : \"40\",\n" +
+                    "    \"itemRangeLow\" : \"20\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"39.20\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 8,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:04\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603668\",\n" +
+                    "    \"itemId\" : \"20000595\",\n" +
+                    "    \"itemNo\" : \"NEU%\",\n" +
+                    "    \"itemName\" : \"中性粒细胞百分数\",\n" +
+                    "    \"itemEname\" : \"NEU%\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"%\",\n" +
+                    "    \"itemRange\" : \"45~77\",\n" +
+                    "    \"itemRangeHigh\" : \"77\",\n" +
+                    "    \"itemRangeLow\" : \"45\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"49.2\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 9,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:05\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603672\",\n" +
+                    "    \"itemId\" : \"20000579\",\n" +
+                    "    \"itemNo\" : \"MON%\",\n" +
+                    "    \"itemName\" : \"单核细胞百分数\",\n" +
+                    "    \"itemEname\" : \"MON%\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"%\",\n" +
+                    "    \"itemRange\" : \"3~8\",\n" +
+                    "    \"itemRangeHigh\" : \"8\",\n" +
+                    "    \"itemRangeLow\" : \"3\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"6.50\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 10,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:05\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603676\",\n" +
+                    "    \"itemId\" : \"20000320\",\n" +
+                    "    \"itemNo\" : \"EOS%\",\n" +
+                    "    \"itemName\" : \"嗜酸性粒细胞百分数\",\n" +
+                    "    \"itemEname\" : \"EO%\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"%\",\n" +
+                    "    \"itemRange\" : \"0.5~5\",\n" +
+                    "    \"itemRangeHigh\" : \"5\",\n" +
+                    "    \"itemRangeLow\" : \"0.5\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"1.7\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 11,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:04\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603680\",\n" +
+                    "    \"itemId\" : \"20000161\",\n" +
+                    "    \"itemNo\" : \"BAS%\",\n" +
+                    "    \"itemName\" : \"嗜碱性粒细胞百分数\",\n" +
+                    "    \"itemEname\" : \"BAS%\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"%\",\n" +
+                    "    \"itemRange\" : \"0~1\",\n" +
+                    "    \"itemRangeHigh\" : \"1\",\n" +
+                    "    \"itemRangeLow\" : \"0\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"0.40\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 12,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:03\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603684\",\n" +
+                    "    \"itemId\" : \"20000556\",\n" +
+                    "    \"itemNo\" : \"LYM#\",\n" +
+                    "    \"itemName\" : \"淋巴细胞计数\",\n" +
+                    "    \"itemEname\" : \"LYM#\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"10^9/L\",\n" +
+                    "    \"itemRange\" : \"0.8~4\",\n" +
+                    "    \"itemRangeHigh\" : \"4\",\n" +
+                    "    \"itemRangeLow\" : \"0.8\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"1.95\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 13,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:04\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603688\",\n" +
+                    "    \"itemId\" : \"20000594\",\n" +
+                    "    \"itemNo\" : \"NEU#\",\n" +
+                    "    \"itemName\" : \"中性粒细胞计数\",\n" +
+                    "    \"itemEname\" : \"NEU#\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"10^9/L\",\n" +
+                    "    \"itemRange\" : \"2.0~7.7\",\n" +
+                    "    \"itemRangeHigh\" : \"7.7\",\n" +
+                    "    \"itemRangeLow\" : \"2.0\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"2.27\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 14,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:05\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603692\",\n" +
+                    "    \"itemId\" : \"20000578\",\n" +
+                    "    \"itemNo\" : \"MON#\",\n" +
+                    "    \"itemName\" : \"单核细胞计数\",\n" +
+                    "    \"itemEname\" : \"MON#\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"10^9/L\",\n" +
+                    "    \"itemRange\" : \"0.12~0.8\",\n" +
+                    "    \"itemRangeHigh\" : \"0.8\",\n" +
+                    "    \"itemRangeLow\" : \"0.12\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"0.30\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 15,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:05\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603695\",\n" +
+                    "    \"itemId\" : \"20000319\",\n" +
+                    "    \"itemNo\" : \"EOS#\",\n" +
+                    "    \"itemName\" : \"嗜酸性粒细胞计数\",\n" +
+                    "    \"itemEname\" : \"EO#\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"10^9/L\",\n" +
+                    "    \"itemRange\" : \"0.05~0.50\",\n" +
+                    "    \"itemRangeHigh\" : \"0.50\",\n" +
+                    "    \"itemRangeLow\" : \"0.05\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"0.08\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 16,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:03\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603697\",\n" +
+                    "    \"itemId\" : \"20000160\",\n" +
+                    "    \"itemNo\" : \"BAS#\",\n" +
+                    "    \"itemName\" : \"嗜碱性粒细胞计数\",\n" +
+                    "    \"itemEname\" : \"BAS#\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"10^9/L\",\n" +
+                    "    \"itemRange\" : \"0~0.1\",\n" +
+                    "    \"itemRangeHigh\" : \"0.1\",\n" +
+                    "    \"itemRangeLow\" : \"0\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"0.02\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 17,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:03\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603700\",\n" +
+                    "    \"itemId\" : \"20000563\",\n" +
+                    "    \"itemNo\" : \"MCV\",\n" +
+                    "    \"itemName\" : \"红细胞平均体积\",\n" +
+                    "    \"itemEname\" : \"MCV\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"fL\",\n" +
+                    "    \"itemRange\" : \"82~100\",\n" +
+                    "    \"itemRangeHigh\" : \"100\",\n" +
+                    "    \"itemRangeLow\" : \"82\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"83.10\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 18,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:04\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603704\",\n" +
+                    "    \"itemId\" : \"20000561\",\n" +
+                    "    \"itemNo\" : \"MCH\",\n" +
+                    "    \"itemName\" : \"平均血红蛋白含量\",\n" +
+                    "    \"itemEname\" : \"MCH\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"pg\",\n" +
+                    "    \"itemRange\" : \"27~34\",\n" +
+                    "    \"itemRangeHigh\" : \"34\",\n" +
+                    "    \"itemRangeLow\" : \"27\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"27.7\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 19,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:04\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603708\",\n" +
+                    "    \"itemId\" : \"20000562\",\n" +
+                    "    \"itemNo\" : \"MCHC\",\n" +
+                    "    \"itemName\" : \"平均血红蛋白浓度\",\n" +
+                    "    \"itemEname\" : \"MCHC\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"g/dL\",\n" +
+                    "    \"itemRange\" : \"316~354\",\n" +
+                    "    \"itemRangeHigh\" : \"354\",\n" +
+                    "    \"itemRangeLow\" : \"316\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"333.00\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 20,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:04\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491624603713\",\n" +
+                    "    \"itemId\" : \"20000691\",\n" +
+                    "    \"itemNo\" : \"RDW-SD\",\n" +
+                    "    \"itemName\" : \"红细胞分布宽度\",\n" +
+                    "    \"itemEname\" : \"RDW-SD\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"fL\",\n" +
+                    "    \"itemRange\" : \"37~50\",\n" +
+                    "    \"itemRangeHigh\" : \"50\",\n" +
+                    "    \"itemRangeLow\" : \"37\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"39.40\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 21,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:06\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491658158088\",\n" +
+                    "    \"itemId\" : \"20000690\",\n" +
+                    "    \"itemNo\" : \"RDW-CV\",\n" +
+                    "    \"itemName\" : \"红细胞分布宽度-CV\",\n" +
+                    "    \"itemEname\" : \"RDW-CV\",\n" +
+                    "    \"itemRangeType\" : \"\",\n" +
+                    "    \"unit\" : \"%\",\n" +
+                    "    \"itemRange\" : null,\n" +
+                    "    \"itemRangeHigh\" : null,\n" +
+                    "    \"itemRangeLow\" : null,\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"13.2\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 22,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:06\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491658158089\",\n" +
+                    "    \"itemId\" : \"20000632\",\n" +
+                    "    \"itemNo\" : \"PCT\",\n" +
+                    "    \"itemName\" : \"血小板压积\",\n" +
+                    "    \"itemEname\" : \"PCT\",\n" +
+                    "    \"itemRangeType\" : \"\",\n" +
+                    "    \"unit\" : \"%\",\n" +
+                    "    \"itemRange\" : null,\n" +
+                    "    \"itemRangeHigh\" : null,\n" +
+                    "    \"itemRangeLow\" : null,\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"0.17\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 23,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:05\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491658158090\",\n" +
+                    "    \"itemId\" : \"20000584\",\n" +
+                    "    \"itemNo\" : \"MPV\",\n" +
+                    "    \"itemName\" : \"血小板平均体积\",\n" +
+                    "    \"itemEname\" : \"MPV\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"fL\",\n" +
+                    "    \"itemRange\" : \"9~13\",\n" +
+                    "    \"itemRangeHigh\" : \"13\",\n" +
+                    "    \"itemRangeLow\" : \"9\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"9.90\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 24,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:05\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491658158094\",\n" +
+                    "    \"itemId\" : \"20000635\",\n" +
+                    "    \"itemNo\" : \"PDW\",\n" +
+                    "    \"itemName\" : \"血小板体积分布宽度\",\n" +
+                    "    \"itemEname\" : \"PDW\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"fL\",\n" +
+                    "    \"itemRange\" : \"9~13\",\n" +
+                    "    \"itemRangeHigh\" : \"13\",\n" +
+                    "    \"itemRangeLow\" : \"9\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"11.10\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 25,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:05\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491658158098\",\n" +
+                    "    \"itemId\" : \"20000644\",\n" +
+                    "    \"itemNo\" : \"P-LCR\",\n" +
+                    "    \"itemName\" : \"大型血小板比率\",\n" +
+                    "    \"itemEname\" : \"P-LCR\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"%\",\n" +
+                    "    \"itemRange\" : \"13~43\",\n" +
+                    "    \"itemRangeHigh\" : \"43\",\n" +
+                    "    \"itemRangeLow\" : \"13\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"23.70\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 26,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:05\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491658158102\",\n" +
+                    "    \"itemId\" : \"20000460\",\n" +
+                    "    \"itemNo\" : \"IG#\",\n" +
+                    "    \"itemName\" : \"幼稚粒细胞绝对值\",\n" +
+                    "    \"itemEname\" : \"IG#\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"10^9/L\",\n" +
+                    "    \"itemRange\" : \"0~0.06\",\n" +
+                    "    \"itemRangeHigh\" : \"0.06\",\n" +
+                    "    \"itemRangeLow\" : \"0\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"0.01\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 28,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:04\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  }, {\n" +
+                    "    \"reportId\" : \"20231006095353001\",\n" +
+                    "    \"keynoGroup\" : \"20231006095353001\",\n" +
+                    "    \"rptDetailId\" : \"6100894491658158106\",\n" +
+                    "    \"itemId\" : \"20000461\",\n" +
+                    "    \"itemNo\" : \"IG%\",\n" +
+                    "    \"itemName\" : \"幼稚粒细胞百分比\",\n" +
+                    "    \"itemEname\" : \"IG%\",\n" +
+                    "    \"itemRangeType\" : \"1\",\n" +
+                    "    \"unit\" : \"%\",\n" +
+                    "    \"itemRange\" : \"0~0.6\",\n" +
+                    "    \"itemRangeHigh\" : \"0.6\",\n" +
+                    "    \"itemRangeLow\" : \"0\",\n" +
+                    "    \"labItemNo\" : \"77834\",\n" +
+                    "    \"itemResult\" : \"0.20\",\n" +
+                    "    \"mark\" : \"\",\n" +
+                    "    \"sno\" : 29,\n" +
+                    "    \"germNo\" : null,\n" +
+                    "    \"germName\" : null,\n" +
+                    "    \"yinYangNature\" : null,\n" +
+                    "    \"expertOpinion\" : null,\n" +
+                    "    \"reportNotes\" : null,\n" +
+                    "    \"filingMemo\" : null,\n" +
+                    "    \"smearMemo\" : null,\n" +
+                    "    \"pageType\" : null,\n" +
+                    "    \"antList\" : null,\n" +
+                    "    \"flagCritical\" : 0,\n" +
+                    "    \"collectTime\" : null,\n" +
+                    "    \"resultTime\" : \"2023-10-06 09:52:04\",\n" +
+                    "    \"sampleClassId\" : \"20000213\",\n" +
+                    "    \"sampleClassName\" : \"血液\"\n" +
+                    "  } ],\n" +
+                    "  \"traceId\" : \"5c5f70fb-5117-44e9-8129-d4aca946ec22\",\n" +
+                    "  \"exceptionName\" : null,\n" +
+                    "  \"qualityMonitor\" : null,\n" +
+                    "  \"ignoreQualityMonitor\" : false,\n" +
+                    "  \"level\" : \"info\",\n" +
+                    "  \"service\" : \"msun-middle-business-lis\",\n" +
+                    "  \"businessException\" : false\n" +
+                    "}";
+            // 记录日志
+            log.setReceiveMessage(res);
+            // 判断
+            if (!JSONUtil.isTypeJSON(res)) {
+                throw new Exception("接口返回的结果不是json");
+            }
+            // 将返回信息转换为接收类
+            ReportDetailResponse response = JSONUtil.toBean(res, ReportDetailResponse.class);
+            // 判断
+            if (BeanUtil.isEmpty(response) || CollUtil.isEmpty(response.getData()) || (!response.getSuccess())) {
+                throw new RuntimeException("接口返回的数据为空或者接口返回错误！");
+            }
+            List<PeReportDepartmentDetail> peReportDepartmentDetails = new ArrayList<>();
+            // 维护检验信息,循环，返回数据的信息进行维护赋值
+            for (ReportDetailVo datum : response.getData()) {
+                // 首先将每条信息存储在reportDetail表中
+                ReportDetail reportDetail = new ReportDetail();
+                List<ReportDetail> listhaveDone = reportDetailService.list(new LambdaQueryWrapper<ReportDetail>()
+                        .eq(ReportDetail::getReportId, datum.getReportId())
+                        .eq(ReportDetail::getRptDetailId, datum.getRptDetailId()));
+                if (CollUtil.isNotEmpty(listhaveDone)) {
+                    BeanUtil.copyProperties(datum, listhaveDone.get(0));
+                    reportDetailService.saveOrUpdate(listhaveDone.get(0));
+                } else {
+                    BeanUtil.copyProperties(datum, reportDetail);
+                    reportDetailService.saveOrUpdate(reportDetail);
+                }
+                // 维护生成图片需要的值
+                // 是更新还是新增，暂时选择新增。
+                // 首先根据获取这条报告的主项目编号和子项目编号
+                List<CheckProject> collect = checkProjectList.stream().filter(Item -> Item.getLabItemId().equals(datum.getLabItemNo())).collect(Collectors.toList());
+                List<CheckProjectDetail> collectDetail = checkProjectDetailList.stream().filter(item -> item.getItemId().equals(datum.getItemId())).collect(Collectors.toList());
+                // 判断
+                if (CollUtil.isEmpty(collect) || CollUtil.isEmpty(collectDetail)) {
+                    log.log("项目：" + datum.getItemName() + "大项目号：" + datum.getLabItemNo() + "小项目号：" + datum.getItemId() + "|" + datum.getItemNo() + "," + "在项目维护表中没有找到对应的维护项目，无法存储相应信息！");
+                    result = log.resultLog("项目：" + datum.getItemName() + "大项目号：" + datum.getLabItemNo() + "小项目号：" + datum.getItemId() + "|" + datum.getItemNo() + "," + "在项目维护表中没有找到对应的维护项目，无法存储相应信息！");
+                }
+                // 根据获取的项目名称对应生成维护数据，直接插入到pe_report_department_detail表中
+                PeReportDepartmentDetail peReportDepartmentDetail = new PeReportDepartmentDetail();
+                // 体检号
+                peReportDepartmentDetail.setPatientNo(peRegister.getPatientNo());
+                // 部门ID
+                peReportDepartmentDetail.setDepartmentId(departmentUtil(collect.get(0).getMineItemRemork()));
+                // 大项目号
+                peReportDepartmentDetail.setComposeItemNo(collect.get(0).getMineItemRemork());
+                // 小项目号
+                peReportDepartmentDetail.setItemNo(collectDetail.get(0).getMineProjectNo());
+                // 结果
+                peReportDepartmentDetail.setPeResult(datum.getItemResult());
+                // 上限值
+                peReportDepartmentDetail.setNormalUp(upLow(datum.getItemRangeHigh()));
+                // 下限值
+                peReportDepartmentDetail.setNormalDown(upLow(datum.getItemRangeLow()));
+                // 范围值
+                peReportDepartmentDetail.setNormalPrint(datum.getItemRange());
+                // 测试同步成功与否
+                peReportDepartmentDetail.setReportDate(DateUtil.date());
+                peReportDepartmentDetails.add(peReportDepartmentDetail);
+            }
+            // 数据持久化
+            saveOrUpdateDataList(peReportDepartmentDetails);
+//            peReportDepartmentDetailService.saveOrUpdateBatch(peReportDepartmentDetails);
+            // 同步状态 1:完成 0 ：未完成
+            peRegister.setIsReport(StaticValue.ONE.getCode());
+            this.saveOrUpdate(peRegister);
+            log.success(true);
+            log.log("数据同步成功！");
+            result = log.resultLog("数据同步成功！");
         } catch (Exception e) {
             // 接口请求失败
             log.success(false);
             // 日志记录
             log.log("报错：" + e.getMessage());
             result = log.resultLog("报错：" + e.getMessage());
+            throw e;
         } finally {
             // 保存日志
             log.saveLog();
@@ -992,6 +2846,70 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
         return result;
     }
 
+    private void saveOrUpdateDataList(List<PeReportDepartmentDetail> peReportDepartmentDetails) throws Exception {
+        // 维护人员状态，报告查询维护：已完成,手动sql
+        for (PeReportDepartmentDetail peReportDepartmentDetail : peReportDepartmentDetails) {
+            List<PeReportDepartmentDetail> isSave = peReportDepartmentDetailService.list(new LambdaQueryWrapper<PeReportDepartmentDetail>()
+                    .eq(PeReportDepartmentDetail::getPatientNo, peReportDepartmentDetail.getPatientNo())
+                    .eq(PeReportDepartmentDetail::getDepartmentId, peReportDepartmentDetail.getDepartmentId())
+                    .eq(PeReportDepartmentDetail::getComposeItemNo, peReportDepartmentDetail.getComposeItemNo())
+                    .eq(PeReportDepartmentDetail::getItemNo, peReportDepartmentDetail.getItemNo())
+            );
+            if (CollUtil.isEmpty(isSave)) {
+                // 新增
+                if (BeanUtil.isEmpty(peReportDepartmentDetail.getNormalDown()) && BeanUtil.isNotEmpty(peReportDepartmentDetail.getNormalUp())) {
+                    peReportDepartmentDetailMapper.addUp(peReportDepartmentDetail);
+                } else if (BeanUtil.isNotEmpty(peReportDepartmentDetail.getNormalDown()) && BeanUtil.isEmpty(peReportDepartmentDetail.getNormalUp())) {
+                    peReportDepartmentDetailMapper.addDown(peReportDepartmentDetail);
+                } else if (BeanUtil.isEmpty(peReportDepartmentDetail.getNormalDown()) && BeanUtil.isEmpty(peReportDepartmentDetail.getNormalUp())) {
+                    peReportDepartmentDetailMapper.addNoUpDown(peReportDepartmentDetail);
+                } else {
+                    peReportDepartmentDetailMapper.add(peReportDepartmentDetail);
+                }
+            } else {
+                // 修改
+                if (BeanUtil.isEmpty(peReportDepartmentDetail.getNormalDown()) && BeanUtil.isNotEmpty(peReportDepartmentDetail.getNormalUp())) {
+                    peReportDepartmentDetailMapper.editUp(peReportDepartmentDetail);
+                } else if (BeanUtil.isNotEmpty(peReportDepartmentDetail.getNormalDown()) && BeanUtil.isEmpty(peReportDepartmentDetail.getNormalUp())) {
+                    peReportDepartmentDetailMapper.editDown(peReportDepartmentDetail);
+                } else if (BeanUtil.isEmpty(peReportDepartmentDetail.getNormalDown()) && BeanUtil.isEmpty(peReportDepartmentDetail.getNormalUp())) {
+                    peReportDepartmentDetailMapper.editNoUpDown(peReportDepartmentDetail);
+                } else {
+                    peReportDepartmentDetailMapper.edit(peReportDepartmentDetail);
+                }
+            }
+        }
+    }
+
+    public Integer departmentUtil(String composeItemNo) {
+        switch (composeItemNo) {
+            case "LNCT1003":
+                return 13;
+            case "LNCT1004":
+                return 31;
+            case "LNCT1005":
+                return 14;
+            case "LNCT1025":
+                return 14;
+            default:
+                return 0;
+        }
+    }
+
+    public Double upLow(String value) {
+        if (StrUtil.isEmpty(value) || value.equals("null")) {
+            // 如果上下限，为空，则赋值0
+            return null;
+        } else {
+            try {
+                // 如果上下限不为空，那么就赋值字符串转换的double值
+                return Double.parseDouble(value);
+            } catch (Exception e) {
+                // 如果转换错误那么就返回空
+                return null;
+            }
+        }
+    }
 
     /**
      * @description: 日志测试
