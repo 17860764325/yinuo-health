@@ -15,22 +15,22 @@
       <!--插槽:table标题-->
       <template #tableTitle>
         <a-button type="primary" @click="handleAdd" v-auth="'doctor:check_project:add'"  preIcon="ant-design:plus-outlined"> 新增</a-button>
-        <a-button  type="primary" preIcon="ant-design:export-outlined" @click="onExportXls"> 导出</a-button>
-        <j-upload-button  type="primary" preIcon="ant-design:import-outlined" v-auth="'doctor:check_project:import'" @click="onImportXls">导入</j-upload-button>
+<!--        <a-button  type="primary" preIcon="ant-design:export-outlined" @click="onExportXls"> 导出</a-button>-->
+<!--        <j-upload-button  type="primary" preIcon="ant-design:import-outlined" v-auth="'doctor:check_project:import'" @click="onImportXls">导入</j-upload-button>-->
         <a-button  type="primary"  v-auth="'doctor:check_project:async'" @click="asyncProject" :icon="h(CloudSyncOutlined)">同步数据</a-button>
-        <a-dropdown v-if="selectedRowKeys.length > 0">
-          <template #overlay>
-            <a-menu>
-              <a-menu-item key="1" @click="batchHandleDelete">
-                <Icon icon="ant-design:delete-outlined"></Icon>
-                删除
-              </a-menu-item>
-            </a-menu>
-          </template>
-          <a-button>批量操作
-            <Icon icon="mdi:chevron-down"></Icon>
-          </a-button>
-        </a-dropdown>
+<!--        <a-dropdown v-if="selectedRowKeys.length > 0">-->
+<!--          <template #overlay>-->
+<!--            <a-menu>-->
+<!--              <a-menu-item key="1" @click="batchHandleDelete">-->
+<!--                <Icon icon="ant-design:delete-outlined"></Icon>-->
+<!--                删除-->
+<!--              </a-menu-item>-->
+<!--            </a-menu>-->
+<!--          </template>-->
+<!--          <a-button>批量操作-->
+<!--            <Icon icon="mdi:chevron-down"></Icon>-->
+<!--          </a-button>-->
+<!--        </a-dropdown>-->
       </template>
       <!--操作栏-->
       <template #action="{ record }">
@@ -70,7 +70,7 @@ import {CloudSyncOutlined, LoadingOutlined} from "@ant-design/icons-vue";
 // 展开key
 const expandedRowKeys = ref<any[]>([]);
 //注册model
-const [registerModal, {openModal}] = useModal();
+const [registerModal, {openModal,setModalProps}] = useModal();
 //注册table数据
 const { prefixCls,tableContext,onExportXls,onImportXls } = useListPage({
   tableProps:{
@@ -150,6 +150,7 @@ function handleAdd() {
  * 编辑事件
  */
 function handleEdit(record: Recordable) {
+  setModalProps({width:1200})
   openModal(true, {
     record,
     isUpdate: true,
@@ -205,13 +206,14 @@ function getDropDownAction(record){
     {
       label: '详情',
       onClick: handleDetail.bind(null, record),
-    }, {
-      label: '删除',
-      popConfirm: {
-        title: '是否确认删除',
-        confirm: handleDelete.bind(null, record),
-      }
-    }
+    },
+    // {
+    //   label: '删除',
+    //   popConfirm: {
+    //     title: '是否确认删除',
+    //     confirm: handleDelete.bind(null, record),
+    //   }
+    // }
   ]
 }
 

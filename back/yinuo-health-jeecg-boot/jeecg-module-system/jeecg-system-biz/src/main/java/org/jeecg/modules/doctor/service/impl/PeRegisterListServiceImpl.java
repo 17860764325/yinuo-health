@@ -136,129 +136,133 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
         List<PeRegisterList> peRegisterLists = this.listByIds(ids);
         // 循环数据组装参数，并且发送请求，将请求返回的信息做存储
         for (PeRegisterList peRegister : peRegisterLists) {
-            // 记录接口请求日志
-            InterfaceRequestLog log = new InterfaceRequestLog();
-            // log是否成功标志
-            boolean flag = true;
-            // log-remoark日志信息
-            StringBuffer logMessage = new StringBuffer();
-            try {
-                // 日志基础信息封装
-                logUtil.logBasicInfo(peRegister, INTERFACE_INFO, log);
-                // 参数封装
-                Map<String, Object> paramsMap = new HashMap<>();
-                // type是字符串传1时1根据patId查询，patId字段必填；传2时1根据姓名和身份证号查询，patName、idCardType、idCardNo字段必填；传3时1根据卡号或者电子健康码查询，cardNo字段必填；
-                paramsMap.put(TYPE, StaticValue.TWO.getCode());
-                // 患者姓名
-                paramsMap.put(PAT_NAME, peRegister.getPatientName());
-                // 证件类型编号，身份证传0，其他从2.1.8.3中取值；填写证件号时证件类型必填
-                paramsMap.put(ID_CARD_TYPE, StaticValue.ZERO.getCode());
-                // 证件号
-                paramsMap.put(ID_CARD_NO, peRegister.getPersonNo());
-                // 定义返回的请求数据
-                PersonSearchResponse personSearchResponse = null;
-                // 请求参数记录日志
-                log.setSendMessage(JSONUtil.parse(paramsMap).toString());
-                // 发送请求
-//                String res = RequestUtil.go(INTERFACE_INFO.getUrl(), INTERFACE_INFO.getRequestType(), paramsMap);
-                String res = "{\n" +
-                        "  \"success\" : true,\n" +
-                        "  \"decorate\" : true,\n" +
-                        "  \"code\" : \"0000\",\n" +
-                        "  \"message\" : \"成功\",\n" +
-                        "  \"data\" : {\n" +
-                        "    \"patName\" : \"郑华珍\",\n" +
-                        "    \"patId\" : \"2156980\",\n" +
-                        "    \"sex\" : \"女\",\n" +
-                        "    \"idCardType\" : \"0\",\n" +
-                        "    \"idCardNo\" : \"370702194709182247\",\n" +
-                        "    \"birthday\" : \"1947-09-17 23:00:00\",\n" +
-                        "    \"phone\" : \"13780817680\",\n" +
-                        "    \"cardType\" : \"3\",\n" +
-                        "    \"cardNo\" : \"370702194709182247\",\n" +
-                        "    \"nation\" : \"1\",\n" +
-                        "    \"nationName\" : \"汉族\",\n" +
-                        "    \"country\" : \"1\",\n" +
-                        "    \"countryName\" : null,\n" +
-                        "    \"province\" : null,\n" +
-                        "    \"provinceName\" : null,\n" +
-                        "    \"city\" : null,\n" +
-                        "    \"cityName\" : null,\n" +
-                        "    \"town\" : null,\n" +
-                        "    \"townName\" : null,\n" +
-                        "    \"addr\" : \"山东省潍坊市奎文区大虞街道东风东街239号六号楼三单元四楼东\",\n" +
-                        "    \"chargeClassId\" : \"103\",\n" +
-                        "    \"chargeClassName\" : \"自费\",\n" +
-                        "    \"sexId\" : \"2\",\n" +
-                        "    \"sexName\" : \"女\",\n" +
-                        "    \"postCode\" : \"\",\n" +
-                        "    \"maritalStatusId\" : null,\n" +
-                        "    \"professionId\" : null,\n" +
-                        "    \"companyName\" : null,\n" +
-                        "    \"contactTelephone\" : \"\",\n" +
-                        "    \"contactName\" : \"\",\n" +
-                        "    \"healthCardNumber\" : \"\",\n" +
-                        "    \"hisCreaterId\" : \"-1\",\n" +
-                        "    \"hisCreaterName\" : \"导入老数据\",\n" +
-                        "    \"hisCreateTime\" : \"2022-12-08 14:11:27\",\n" +
-                        "    \"hospitalId\" : \"10353001\",\n" +
-                        "    \"maritalStatusName\" : null,\n" +
-                        "    \"orgId\" : \"10353\"\n" +
-                        "  },\n" +
-                        "  \"traceId\" : \"8fa3066b-e8d8-43c2-9ec0-c37372ee563a\",\n" +
-                        "  \"exceptionName\" : null,\n" +
-                        "  \"qualityMonitor\" : null,\n" +
-                        "  \"ignoreQualityMonitor\" : false,\n" +
-                        "  \"level\" : \"info\",\n" +
-                        "  \"service\" : \"msun-middle-aggregate-patient\",\n" +
-                        "  \"businessException\" : false\n" +
-                        "}";
-                // 记录返回数据
-                log.setReceiveMessage(res);
-                // json 转换
-                if (JSONUtil.isJson(res)) {
-                    // 将字符串转换为实体类
-                    personSearchResponse = JSONUtil.toBean(res, PersonSearchResponse.class);
-                    // 判断请求是否成功
-                    if (!personSearchResponse.getSuccess()) {
-                        flag = false;
-                        logUtil.logMessage(resultMessage, peRegister, logMessage, "请求失败：" + personSearchResponse.getMessage());
-                    } else {
-                        if (BeanUtil.isNotEmpty(personSearchResponse.getData()) && StrUtil.isNotEmpty(personSearchResponse.getData().getPatId())) {
-                            // 获取请求数据的 患者 id 字段，维护到 pe_regiter_list 表格中
-                            peRegister.setPatId(personSearchResponse.getData().getPatId());
-                            // 书写返回信息
-                            logUtil.logMessage(resultMessage, peRegister, logMessage, "获取 患者id(" + personSearchResponse.getData().getPatId() + ") 成功！");
-                            // 将更新的数据进行持久化
-                            boolean b = this.saveOrUpdate(peRegister);
-                            flag = b;
-                            logMessage.append("数据维护：" + b);
-                        } else {
-                            flag = false;
-                            // 书写失败返回信息 和 log
-                            logUtil.logMessage(resultMessage, peRegister, logMessage, "获取 患者id 失败！该人未创建档案，请创建档案后，在维护患者id");
-                        }
-                    }
-                } else {
-                    // 如果返回的数据不是json数据的话
-                    flag = false;
-                    logUtil.logMessage(resultMessage, peRegister, logMessage, "接口返回信息不是json数据！");
-                }
-            } catch (Exception e) {
-                flag = false;
-                logUtil.logMessage(resultMessage, peRegister, logMessage, "体检号：" + peRegister.getPatientNo() + ",报错：" + e.getMessage());
-            } finally {
-                // 记录日志 flag
-                log.setSuccess(flag ? StaticValue.SUCCESS.getCode() : StaticValue.FAIL.getCode());
-                // 记录失败原因
-                log.setRemark(logMessage.toString());
-                // 将日志保存
-                logUtil.saveLog(log);
-            }
+            personSearchOne(resultMessage, peRegister);
         }
         // 数据持久化
         return Result.OK(resultMessage.toString());
 
+    }
+
+    private void personSearchOne(StringBuffer resultMessage, PeRegisterList peRegister) {
+        // 记录接口请求日志
+        InterfaceRequestLog log = new InterfaceRequestLog();
+        // log是否成功标志
+        boolean flag = true;
+        // log-remoark日志信息
+        StringBuffer logMessage = new StringBuffer();
+        try {
+            // 日志基础信息封装
+            logUtil.logBasicInfo(peRegister, INTERFACE_INFO, log);
+            // 参数封装
+            Map<String, Object> paramsMap = new HashMap<>();
+            // type是字符串传1时1根据patId查询，patId字段必填；传2时1根据姓名和身份证号查询，patName、idCardType、idCardNo字段必填；传3时1根据卡号或者电子健康码查询，cardNo字段必填；
+            paramsMap.put(TYPE, StaticValue.TWO.getCode());
+            // 患者姓名
+            paramsMap.put(PAT_NAME, peRegister.getPatientName());
+            // 证件类型编号，身份证传0，其他从2.1.8.3中取值；填写证件号时证件类型必填
+            paramsMap.put(ID_CARD_TYPE, StaticValue.ZERO.getCode());
+            // 证件号
+            paramsMap.put(ID_CARD_NO, peRegister.getPersonNo());
+            // 定义返回的请求数据
+            PersonSearchResponse personSearchResponse = null;
+            // 请求参数记录日志
+            log.setSendMessage(JSONUtil.parse(paramsMap).toString());
+            // 发送请求
+//                String res = RequestUtil.go(INTERFACE_INFO.getUrl(), INTERFACE_INFO.getRequestType(), paramsMap);
+            String res = "{\n" +
+                    "  \"success\" : true,\n" +
+                    "  \"decorate\" : true,\n" +
+                    "  \"code\" : \"0000\",\n" +
+                    "  \"message\" : \"成功\",\n" +
+                    "  \"data\" : {\n" +
+                    "    \"patName\" : \"郑华珍\",\n" +
+                    "    \"patId\" : \"2156980\",\n" +
+                    "    \"sex\" : \"女\",\n" +
+                    "    \"idCardType\" : \"0\",\n" +
+                    "    \"idCardNo\" : \"370702194709182247\",\n" +
+                    "    \"birthday\" : \"1947-09-17 23:00:00\",\n" +
+                    "    \"phone\" : \"13780817680\",\n" +
+                    "    \"cardType\" : \"3\",\n" +
+                    "    \"cardNo\" : \"370702194709182247\",\n" +
+                    "    \"nation\" : \"1\",\n" +
+                    "    \"nationName\" : \"汉族\",\n" +
+                    "    \"country\" : \"1\",\n" +
+                    "    \"countryName\" : null,\n" +
+                    "    \"province\" : null,\n" +
+                    "    \"provinceName\" : null,\n" +
+                    "    \"city\" : null,\n" +
+                    "    \"cityName\" : null,\n" +
+                    "    \"town\" : null,\n" +
+                    "    \"townName\" : null,\n" +
+                    "    \"addr\" : \"山东省潍坊市奎文区大虞街道东风东街239号六号楼三单元四楼东\",\n" +
+                    "    \"chargeClassId\" : \"103\",\n" +
+                    "    \"chargeClassName\" : \"自费\",\n" +
+                    "    \"sexId\" : \"2\",\n" +
+                    "    \"sexName\" : \"女\",\n" +
+                    "    \"postCode\" : \"\",\n" +
+                    "    \"maritalStatusId\" : null,\n" +
+                    "    \"professionId\" : null,\n" +
+                    "    \"companyName\" : null,\n" +
+                    "    \"contactTelephone\" : \"\",\n" +
+                    "    \"contactName\" : \"\",\n" +
+                    "    \"healthCardNumber\" : \"\",\n" +
+                    "    \"hisCreaterId\" : \"-1\",\n" +
+                    "    \"hisCreaterName\" : \"导入老数据\",\n" +
+                    "    \"hisCreateTime\" : \"2022-12-08 14:11:27\",\n" +
+                    "    \"hospitalId\" : \"10353001\",\n" +
+                    "    \"maritalStatusName\" : null,\n" +
+                    "    \"orgId\" : \"10353\"\n" +
+                    "  },\n" +
+                    "  \"traceId\" : \"8fa3066b-e8d8-43c2-9ec0-c37372ee563a\",\n" +
+                    "  \"exceptionName\" : null,\n" +
+                    "  \"qualityMonitor\" : null,\n" +
+                    "  \"ignoreQualityMonitor\" : false,\n" +
+                    "  \"level\" : \"info\",\n" +
+                    "  \"service\" : \"msun-middle-aggregate-patient\",\n" +
+                    "  \"businessException\" : false\n" +
+                    "}";
+            // 记录返回数据
+            log.setReceiveMessage(res);
+            // json 转换
+            if (JSONUtil.isJson(res)) {
+                // 将字符串转换为实体类
+                personSearchResponse = JSONUtil.toBean(res, PersonSearchResponse.class);
+                // 判断请求是否成功
+                if (!personSearchResponse.getSuccess()) {
+                    flag = false;
+                    logUtil.logMessage(resultMessage, peRegister, logMessage, "请求失败：" + personSearchResponse.getMessage());
+                } else {
+                    if (BeanUtil.isNotEmpty(personSearchResponse.getData()) && StrUtil.isNotEmpty(personSearchResponse.getData().getPatId())) {
+                        // 获取请求数据的 患者 id 字段，维护到 pe_regiter_list 表格中
+                        peRegister.setPatId(personSearchResponse.getData().getPatId());
+                        // 书写返回信息
+                        logUtil.logMessage(resultMessage, peRegister, logMessage, "获取 患者id(" + personSearchResponse.getData().getPatId() + ") 成功！");
+                        // 将更新的数据进行持久化
+                        boolean b = this.saveOrUpdate(peRegister);
+                        flag = b;
+                        logMessage.append("数据维护：" + b);
+                    } else {
+                        flag = false;
+                        // 书写失败返回信息 和 log
+                        logUtil.logMessage(resultMessage, peRegister, logMessage, "获取 患者id 失败！该人未创建档案，请创建档案后，在维护患者id");
+                    }
+                }
+            } else {
+                // 如果返回的数据不是json数据的话
+                flag = false;
+                logUtil.logMessage(resultMessage, peRegister, logMessage, "接口返回信息不是json数据！");
+            }
+        } catch (Exception e) {
+            flag = false;
+            logUtil.logMessage(resultMessage, peRegister, logMessage, "体检号：" + peRegister.getPatientNo() + ",报错：" + e.getMessage());
+        } finally {
+            // 记录日志 flag
+            log.setSuccess(flag ? StaticValue.SUCCESS.getCode() : StaticValue.FAIL.getCode());
+            // 记录失败原因
+            log.setRemark(logMessage.toString());
+            // 将日志保存
+            logUtil.saveLog(log);
+        }
     }
 
     /**
@@ -277,92 +281,96 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
         List<PeRegisterList> peRegisterLists = this.listByIds(ids);
         // 循环人员数据，进行档案创建
         for (PeRegisterList peRegister : peRegisterLists) {
-            // 记录接口请求日志
-            InterfaceRequestLog log = new InterfaceRequestLog();
-            // log是否成功标志
-            boolean flag = true;
-            // log-remoark日志信息
-            StringBuffer logMessage = new StringBuffer();
-            try {
-                // 日志基础信息封装
-                logUtil.logBasicInfo(peRegister, INTERFACE_INFO_PERSON_CREATE, log);
-
-                // 组装请求参数
-                Map<String, Object> paramMap = new HashMap<>();
-                personCreateParam(peRegister, paramMap);
-                // 将组装的参数，存到日志
-                log.setSendMessage(JSONUtil.parse(paramMap).toString());
-
-                // 发送请求
-//                String res = RequestUtil.go(INTERFACE_INFO_PERSON_CREATE.getUrl(), INTERFACE_INFO_PERSON_CREATE.getRequestType(), paramMap);
-                // 假数据
-                String res = "{\n" +
-                        "    \"businessException\": true,\n" +
-                        "    \"code\": \"\",\n" +
-                        "    \"data\": {\n" +
-                        "        \"cardNo\": \"\",\n" +
-                        "        \"cardType\": 0,\n" +
-                        "        \"patId\": \"test132\"\n" +
-                        "    },\n" +
-                        "    \"decorate\": true,\n" +
-                        "    \"exceptionName\": \"\",\n" +
-                        "    \"ignoreQualityMonitor\": true,\n" +
-                        "    \"message\": \"\",\n" +
-                        "    \"success\": true,\n" +
-                        "    \"traceId\": \"\"\n" +
-                        "}";
-                // 日志记录接受信息
-                log.setReceiveMessage(res);
-
-                // 处理接受信息
-                if (!JSONUtil.isJson(res)) {
-                    // 如果返回的数据不是json数据
-                    flag = false;
-                    logUtil.logMessage(resultMessage, peRegister, logMessage, "接口返回信息不是json数据！");
-                    continue;
-                }
-                // 接受信息
-                PersonCreateResponse response = JSONUtil.toBean(res, PersonCreateResponse.class);
-
-                // 判空
-                if (BeanUtil.isEmpty(response) || BeanUtil.isEmpty(response.getData()) || StrUtil.isEmpty(response.getData().getPatId())) {
-                    flag = false;
-                    logUtil.logMessage(resultMessage, peRegister, logMessage, "接口返回信息为空！");
-                    continue;
-                }
-
-                // 判断请求是否成功
-                if (!response.getSuccess()) {
-                    flag = false;
-                    logUtil.logMessage(resultMessage, peRegister, logMessage, "接口请求失败！");
-                    continue;
-                }
-
-                // 维护数据，将请求到的患者ID 维护到 本地数据库上
-                // TODO 还有一个卡号，和卡类型编号需要确认是否有用到的地方，需要不需要存储，这里并没有存储处理
-                peRegister.setPatId(response.getData().getPatId());
-                // 日志和返回消息处理
-                logUtil.logMessage(resultMessage, peRegister, logMessage, "创建档案成功，并接收到患者ID(" + response.getData().getPatId() + ")");
-                // 数据持久化
-                boolean b = this.saveOrUpdate(peRegister);
-                flag = b;
-                logMessage.append("数据持久化是否成功：" + b);
-
-            } catch (Exception e) {
-                flag = false;
-                // 日志log 返回的数据
-                logUtil.logMessage(resultMessage, peRegister, logMessage, "报错：" + e.getMessage());
-            } finally {
-                // 记录日志 flag
-                log.setSuccess(flag ? StaticValue.SUCCESS.getCode() : StaticValue.FAIL.getCode());
-                // 记录失败原因
-                log.setRemark(logMessage.toString());
-                // 将日志保存
-                logUtil.saveLog(log);
-            }
+            personCreateOne(resultMessage, peRegister);
         }
         // 数据持久化
         return Result.OK(resultMessage.toString());
+    }
+
+    private void personCreateOne(StringBuffer resultMessage, PeRegisterList peRegister) {
+        // 记录接口请求日志
+        InterfaceRequestLog log = new InterfaceRequestLog();
+        // log是否成功标志
+        boolean flag = true;
+        // log-remoark日志信息
+        StringBuffer logMessage = new StringBuffer();
+        try {
+            // 日志基础信息封装
+            logUtil.logBasicInfo(peRegister, INTERFACE_INFO_PERSON_CREATE, log);
+
+            // 组装请求参数
+            Map<String, Object> paramMap = new HashMap<>();
+            personCreateParam(peRegister, paramMap);
+            // 将组装的参数，存到日志
+            log.setSendMessage(JSONUtil.parse(paramMap).toString());
+
+            // 发送请求
+//                String res = RequestUtil.go(INTERFACE_INFO_PERSON_CREATE.getUrl(), INTERFACE_INFO_PERSON_CREATE.getRequestType(), paramMap);
+            // 假数据
+            String res = "{\n" +
+                    "    \"businessException\": true,\n" +
+                    "    \"code\": \"\",\n" +
+                    "    \"data\": {\n" +
+                    "        \"cardNo\": \"\",\n" +
+                    "        \"cardType\": 0,\n" +
+                    "        \"patId\": \"test132\"\n" +
+                    "    },\n" +
+                    "    \"decorate\": true,\n" +
+                    "    \"exceptionName\": \"\",\n" +
+                    "    \"ignoreQualityMonitor\": true,\n" +
+                    "    \"message\": \"\",\n" +
+                    "    \"success\": true,\n" +
+                    "    \"traceId\": \"\"\n" +
+                    "}";
+            // 日志记录接受信息
+            log.setReceiveMessage(res);
+
+            // 处理接受信息
+            if (!JSONUtil.isJson(res)) {
+                // 如果返回的数据不是json数据
+                flag = false;
+                logUtil.logMessage(resultMessage, peRegister, logMessage, "接口返回信息不是json数据！");
+                return;
+            }
+            // 接受信息
+            PersonCreateResponse response = JSONUtil.toBean(res, PersonCreateResponse.class);
+
+            // 判空
+            if (BeanUtil.isEmpty(response) || BeanUtil.isEmpty(response.getData()) || StrUtil.isEmpty(response.getData().getPatId())) {
+                flag = false;
+                logUtil.logMessage(resultMessage, peRegister, logMessage, "接口返回信息为空！");
+                return;
+            }
+
+            // 判断请求是否成功
+            if (!response.getSuccess()) {
+                flag = false;
+                logUtil.logMessage(resultMessage, peRegister, logMessage, "接口请求失败！");
+                return;
+            }
+
+            // 维护数据，将请求到的患者ID 维护到 本地数据库上
+            // TODO 还有一个卡号，和卡类型编号需要确认是否有用到的地方，需要不需要存储，这里并没有存储处理
+            peRegister.setPatId(response.getData().getPatId());
+            // 日志和返回消息处理
+            logUtil.logMessage(resultMessage, peRegister, logMessage, "创建档案成功，并接收到患者ID(" + response.getData().getPatId() + ")");
+            // 数据持久化
+            boolean b = this.saveOrUpdate(peRegister);
+            flag = b;
+            logMessage.append("数据持久化是否成功：" + b);
+
+        } catch (Exception e) {
+            flag = false;
+            // 日志log 返回的数据
+            logUtil.logMessage(resultMessage, peRegister, logMessage, "报错：" + e.getMessage());
+        } finally {
+            // 记录日志 flag
+            log.setSuccess(flag ? StaticValue.SUCCESS.getCode() : StaticValue.FAIL.getCode());
+            // 记录失败原因
+            log.setRemark(logMessage.toString());
+            // 将日志保存
+            logUtil.saveLog(log);
+        }
     }
 
     private void personCreateParam(PeRegisterList peRegister, Map<String, Object> paramMap) {
@@ -404,156 +412,160 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
         List<PeRegisterList> peRegisters = this.listByIds(lisApplyInfo.getPatIds());
         // 循环操作用户
         for (PeRegisterList peRegister : peRegisters) {
-            StringBuffer result = null;
-            // 创建日志记录
-            LogUtilNew log = LogUtilNew.getInstance(LIS_APPLY, peRegister);
-            try {
-                log.log("LIS检验申请方法调用！｜");
-                // 获取用户检验项目
-                List<PatItems> patItems = peRegisterListMapper.getPatItems(peRegister.getPatientNo());
-                log.log("获取到的用户检验项目：" + JSONUtil.parse(patItems) + "｜");
-                if (CollUtil.isEmpty(patItems)) {
-                    result = log.resultLog("查询到检查项目为空无法生成LIs检验申请！");
-                    log.log("查询到检查项目为空无法生成LIS检验申请！");
-                    log.success(false);
-                    continue;
-                }
-                // 组装参数
-                // 组装主参数；
-                Map<String, Object> paramMap = new HashMap<>();
-                // 患者id
-                paramMap.put(PAT_ID, peRegister.getPatId());
-                // 患者体检流水号
-                paramMap.put(PAT_NO, peRegister.getPatientNo());
-                // 患者姓名
-                paramMap.put(PAT_NAME, peRegister.getPatientName());
-                // 身份证号
-                paramMap.put(ID_CARD, peRegister.getPersonNo());
-                // 性别
-                paramMap.put(SEX, peRegister.getSex());
-                // 年龄
-                paramMap.put(PAT_AGE, peRegister.getAge());
-                // 出生日期
-                paramMap.put(BIRTH_DAY, peRegister.getBirthday());
-                // 患者类型
-                paramMap.put(PAT_TYPE, lisApplyInfo.getPatType());
-                // 联系方式
-                paramMap.put(PAT_PHONE, peRegister.getTelphone());
-                // 患者科室id
-                paramMap.put(PAT_DEPT_ID, StaticValue.DEPT_ID.getCode());
-                // 患者科室名称
-                paramMap.put(PAT_DEPT_NAME, StaticValue.DEPT_NAME.getCode());
-                // 申请医生id
-                paramMap.put(REQ_DOC_ID, StaticValue.DOC_ID.getCode());
-                // 申请医生名称
-                paramMap.put(REQ_DOC_NAME, StaticValue.DOC_NAME.getCode());
-                // 组装项目参数
-                List<Map<String, Object>> itemList = new ArrayList<>();
-                // 条码表
-                List<LisApplyBarCodeReportId> LisApplyBarCodeReportId = new ArrayList<>();
-                // 循环查询出来的项目组装详情参数
-                for (PatItems patItem : patItems) {
-                    // 创建参数map
-                    Map<String, Object> itemMap = new HashMap<>();
-                    // 根据查询出来的项目，对应获取项目列表里面的项目详情信息
-                    List<CheckProject> ItemInfo = checkProjectService.list(new LambdaQueryWrapper<CheckProject>().eq(CheckProject::getMineProjectNo, OtherUtil.strControll(patItem.getComposeItemNo())));
-                    if (CollUtil.isEmpty(ItemInfo)) {
-                        log.log("根据本地数据库项目号：" + patItem.getCureNo() + "项目名称：" + patItem.getItemName() + "没有查询到，相应的项目详情数据，请到：”检验项目配置“ 进行配置！");
-                        result = log.resultLog("根据本地数据库项目号：" + patItem.getCureNo() + "项目名称：" + patItem.getItemName() + "没有查询到，相应的项目详情数据，请到：”检验项目配置“ 进行配置！");
-                        continue;
-                    }
-                    // 项目id
-                    itemMap.put(LAB_ITEM_ID, ItemInfo.get(0).getLabItemId());
-                    // 检验项目业务号--传输 cur_assay_master.cure_no字段
-                    itemMap.put(MAIN_ORDER_ID, patItem.getCureNo());
-                    // 备注
-                    itemMap.put(NOTE, StaticValue.WU.getCode());
-                    // 医嘱字典id
-                    itemMap.put(ORDER_ID, ItemInfo.get(0).getOrderId());
-                    // 医嘱字典名称
-                    itemMap.put(ORDER_NAME, ItemInfo.get(0).getOrderName());
-                    // 价格
-                    itemMap.put(PRICE, StaticValue.ZERO.getCode());
-                    // 样本id
-                    itemMap.put(SAMPLE_CLASS_ID, ItemInfo.get(0).getSampleClassId());
-                    // 样本名称
-                    itemMap.put(SAMPLE_CLASS_NAME, ItemInfo.get(0).getSampleClassName());
-                    // 报告项目id
-                    itemMap.put(REPORT_ITEM_ID, ItemInfo.get(0).getReportItemId());
-                    // 执行状态，0 未缴费:1已缴费:2已退费:3:申请退费(注:不需要在 HIS 缴费传值为1)
-                    itemMap.put(EXECUTE_STATE, StaticValue.ONE.getCode());
-                    // 添加到详细list中
-                    itemList.add(itemMap);
-
-                    // 组装条码信息报告信息表
-                    LisApplyBarCodeReportId lisApplyBarCodeReportId = new LisApplyBarCodeReportId();
-                    lisApplyBarCodeReportId.setPatientNo(peRegister.getPatientNo());
-                    lisApplyBarCodeReportId.setPatientName(peRegister.getPatientName());
-                    lisApplyBarCodeReportId.setPatId(peRegister.getPatId());
-                    lisApplyBarCodeReportId.setLabItemId(ItemInfo.get(0).getLabItemId());
-                    lisApplyBarCodeReportId.setLabItemName(ItemInfo.get(0).getLabName());
-                    lisApplyBarCodeReportId.setItemNo(patItem.getComposeItemNo());
-                    LisApplyBarCodeReportId.add(lisApplyBarCodeReportId);
-                }
-                // 数据持久化
-                lisApplyBarCodeReportIdService.saveBatch(LisApplyBarCodeReportId);
-                // 封装参数
-                paramMap.put(ORDER_ITEM_LIST, itemList);
-
-                // 请求信息封装
-                log.setSendMessage(JSONUtil.parse(paramMap).toString());
-                // 发送请求
-//                String res = RequestUtil.go(LIS_APPLY.getUrl(), LIS_APPLY.getRequestType(), paramMap);
-                // 假数据
-                String res = "{\n" +
-                        "    \"success\": true,\n" +
-                        "    \"decorate\": true,\n" +
-                        "    \"code\": \"0000\",\n" +
-                        "    \"message\": \"成功\",\n" +
-                        "    \"traceId\": \"e6b21007-e2fc-41e0-86b9-55f3e2a06c8b\",\n" +
-                        "    \"exceptionName\": null,\n" +
-                        "    \"qualityMonitor\": null,\n" +
-                        "    \"ignoreQualityMonitor\": false,\n" +
-                        "    \"level\": \"info\",\n" +
-                        "    \"service\": \"msun-middle-business-lis\",\n" +
-                        "    \"businessException\": false\n" +
-                        "}";
-                // 返回信息封装
-                log.setReceiveMessage(res);
-                // 判断
-                if (!JSONUtil.isJson(res)) {
-                    throw new RuntimeException("返回信息不是json！");
-                }
-                // 将返回的数据转换成为，接收类数据
-                BaseResponseEntity response = JSONUtil.toBean(res, BaseResponseEntity.class);
-                // 请求不成功
-                if (!response.getSuccess()) {
-                    throw new RuntimeException("LIS检验申请提交失败！");
-                } else {
-                    // 将患者类型维护
-                    peRegister.setPatType(lisApplyInfo.getPatType());
-                    // 已经提交检验申请,1:是，0 否
-                    peRegister.setIsLisApply(StaticValue.ONE.getCode());
-                    // 数据持久化
-                    this.updateById(peRegister);
-
-                    log.success(true);
-                    log.log("LIS检验申请提交成功！");
-                    result = log.resultLog("LIS检验申请提交成功！");
-                }
-            } catch (Exception e) {
-                log.success(false);
-                log.log("报错：" + e.getMessage());
-                result = log.resultLog("报错：" + e.getMessage());
-            } finally {
-                // 保存日志
-                log.saveLog();
-            }
-            // 添加人员返回信息
-            resultAll.append(result);
+            LISApplyOne(lisApplyInfo, resultAll, peRegister);
         }
         // 返回信息
         return Result.ok(resultAll.toString());
+    }
+
+    private void LISApplyOne(LISApplyInfo lisApplyInfo, StringBuffer resultAll, PeRegisterList peRegister) {
+        StringBuffer result = null;
+        // 创建日志记录
+        LogUtilNew log = LogUtilNew.getInstance(LIS_APPLY, peRegister);
+        try {
+            log.log("LIS检验申请方法调用！｜");
+            // 获取用户检验项目
+            List<PatItems> patItems = peRegisterListMapper.getPatItems(peRegister.getPatientNo());
+            log.log("获取到的用户检验项目：" + JSONUtil.parse(patItems) + "｜");
+            if (CollUtil.isEmpty(patItems)) {
+                result = log.resultLog("查询到检查项目为空无法生成LIs检验申请！");
+                log.log("查询到检查项目为空无法生成LIS检验申请！");
+                log.success(false);
+                return;
+            }
+            // 组装参数
+            // 组装主参数；
+            Map<String, Object> paramMap = new HashMap<>();
+            // 患者id
+            paramMap.put(PAT_ID, peRegister.getPatId());
+            // 患者体检流水号
+            paramMap.put(PAT_NO, peRegister.getPatientNo());
+            // 患者姓名
+            paramMap.put(PAT_NAME, peRegister.getPatientName());
+            // 身份证号
+            paramMap.put(ID_CARD, peRegister.getPersonNo());
+            // 性别
+            paramMap.put(SEX, peRegister.getSex());
+            // 年龄
+            paramMap.put(PAT_AGE, peRegister.getAge());
+            // 出生日期
+            paramMap.put(BIRTH_DAY, peRegister.getBirthday());
+            // 患者类型
+            paramMap.put(PAT_TYPE, lisApplyInfo.getPatType());
+            // 联系方式
+            paramMap.put(PAT_PHONE, peRegister.getTelphone());
+            // 患者科室id
+            paramMap.put(PAT_DEPT_ID, StaticValue.DEPT_ID.getCode());
+            // 患者科室名称
+            paramMap.put(PAT_DEPT_NAME, StaticValue.DEPT_NAME.getCode());
+            // 申请医生id
+            paramMap.put(REQ_DOC_ID, StaticValue.DOC_ID.getCode());
+            // 申请医生名称
+            paramMap.put(REQ_DOC_NAME, StaticValue.DOC_NAME.getCode());
+            // 组装项目参数
+            List<Map<String, Object>> itemList = new ArrayList<>();
+            // 条码表
+            List<LisApplyBarCodeReportId> LisApplyBarCodeReportId = new ArrayList<>();
+            // 循环查询出来的项目组装详情参数
+            for (PatItems patItem : patItems) {
+                // 创建参数map
+                Map<String, Object> itemMap = new HashMap<>();
+                // 根据查询出来的项目，对应获取项目列表里面的项目详情信息
+                List<CheckProject> ItemInfo = checkProjectService.list(new LambdaQueryWrapper<CheckProject>().eq(CheckProject::getMineProjectNo, OtherUtil.strControll(patItem.getComposeItemNo())));
+                if (CollUtil.isEmpty(ItemInfo)) {
+                    log.log("根据本地数据库项目号：" + patItem.getCureNo() + "项目名称：" + patItem.getItemName() + "没有查询到，相应的项目详情数据，请到：”检验项目配置“ 进行配置！");
+                    result = log.resultLog("根据本地数据库项目号：" + patItem.getCureNo() + "项目名称：" + patItem.getItemName() + "没有查询到，相应的项目详情数据，请到：”检验项目配置“ 进行配置！");
+                    continue;
+                }
+                // 项目id
+                itemMap.put(LAB_ITEM_ID, ItemInfo.get(0).getLabItemId());
+                // 检验项目业务号--传输 cur_assay_master.cure_no字段
+                itemMap.put(MAIN_ORDER_ID, patItem.getCureNo());
+                // 备注
+                itemMap.put(NOTE, StaticValue.WU.getCode());
+                // 医嘱字典id
+                itemMap.put(ORDER_ID, ItemInfo.get(0).getOrderId());
+                // 医嘱字典名称
+                itemMap.put(ORDER_NAME, ItemInfo.get(0).getOrderName());
+                // 价格
+                itemMap.put(PRICE, StaticValue.ZERO.getCode());
+                // 样本id
+                itemMap.put(SAMPLE_CLASS_ID, ItemInfo.get(0).getSampleClassId());
+                // 样本名称
+                itemMap.put(SAMPLE_CLASS_NAME, ItemInfo.get(0).getSampleClassName());
+                // 报告项目id
+                itemMap.put(REPORT_ITEM_ID, ItemInfo.get(0).getReportItemId());
+                // 执行状态，0 未缴费:1已缴费:2已退费:3:申请退费(注:不需要在 HIS 缴费传值为1)
+                itemMap.put(EXECUTE_STATE, StaticValue.ONE.getCode());
+                // 添加到详细list中
+                itemList.add(itemMap);
+
+                // 组装条码信息报告信息表
+                LisApplyBarCodeReportId lisApplyBarCodeReportId = new LisApplyBarCodeReportId();
+                lisApplyBarCodeReportId.setPatientNo(peRegister.getPatientNo());
+                lisApplyBarCodeReportId.setPatientName(peRegister.getPatientName());
+                lisApplyBarCodeReportId.setPatId(peRegister.getPatId());
+                lisApplyBarCodeReportId.setLabItemId(ItemInfo.get(0).getLabItemId());
+                lisApplyBarCodeReportId.setLabItemName(ItemInfo.get(0).getLabName());
+                lisApplyBarCodeReportId.setItemNo(patItem.getComposeItemNo());
+                LisApplyBarCodeReportId.add(lisApplyBarCodeReportId);
+            }
+            // 数据持久化
+            lisApplyBarCodeReportIdService.saveBatch(LisApplyBarCodeReportId);
+            // 封装参数
+            paramMap.put(ORDER_ITEM_LIST, itemList);
+
+            // 请求信息封装
+            log.setSendMessage(JSONUtil.parse(paramMap).toString());
+            // 发送请求
+//                String res = RequestUtil.go(LIS_APPLY.getUrl(), LIS_APPLY.getRequestType(), paramMap);
+            // 假数据
+            String res = "{\n" +
+                    "    \"success\": true,\n" +
+                    "    \"decorate\": true,\n" +
+                    "    \"code\": \"0000\",\n" +
+                    "    \"message\": \"成功\",\n" +
+                    "    \"traceId\": \"e6b21007-e2fc-41e0-86b9-55f3e2a06c8b\",\n" +
+                    "    \"exceptionName\": null,\n" +
+                    "    \"qualityMonitor\": null,\n" +
+                    "    \"ignoreQualityMonitor\": false,\n" +
+                    "    \"level\": \"info\",\n" +
+                    "    \"service\": \"msun-middle-business-lis\",\n" +
+                    "    \"businessException\": false\n" +
+                    "}";
+            // 返回信息封装
+            log.setReceiveMessage(res);
+            // 判断
+            if (!JSONUtil.isJson(res)) {
+                throw new RuntimeException("返回信息不是json！");
+            }
+            // 将返回的数据转换成为，接收类数据
+            BaseResponseEntity response = JSONUtil.toBean(res, BaseResponseEntity.class);
+            // 请求不成功
+            if (!response.getSuccess()) {
+                throw new RuntimeException("LIS检验申请提交失败！");
+            } else {
+                // 将患者类型维护
+                peRegister.setPatType(lisApplyInfo.getPatType());
+                // 已经提交检验申请,1:是，0 否
+                peRegister.setIsLisApply(StaticValue.ONE.getCode());
+                // 数据持久化
+                this.updateById(peRegister);
+
+                log.success(true);
+                log.log("LIS检验申请提交成功！");
+                result = log.resultLog("LIS检验申请提交成功！");
+            }
+        } catch (Exception e) {
+            log.success(false);
+            log.log("报错：" + e.getMessage());
+            result = log.resultLog("报错：" + e.getMessage());
+        } finally {
+            // 保存日志
+            log.saveLog();
+        }
+        // 添加人员返回信息
+        resultAll.append(result);
     }
 
     /**
@@ -572,185 +584,189 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
         List<PeRegisterList> peRegisterLists = this.listByIds(ids);
         // 循环数据操作
         for (PeRegisterList peRegister : peRegisterLists) {
-            // 单个人员返信息
-            StringBuffer result;
-            // 日志信息
-            LogUtilNew log = LogUtilNew.getInstance(BAR_CODE_BUILD, peRegister);
-            try {
-                // 组装参数
-                Map<String, Object> paramMap = new HashMap<>();
-                // 患者id
-                paramMap.put(PAT_ID, peRegister.getPatId());
-                // 患者类型
-                paramMap.put(PAT_TYPE, peRegister.getPatType());
-                // 检验项目业务编号list
-                List<String> mainOrderIdList = new ArrayList<>();
-                // 获取用户检验项目
-                List<PatItems> patItems = peRegisterListMapper.getPatItems(peRegister.getPatientNo());
-                for (PatItems patItem : patItems) {
-                    mainOrderIdList.add(patItem.getCureNo());
-                }
-                paramMap.put(MAIN_ORDER_ID_LIST, mainOrderIdList);
-                // 放发送的请求
-                log.setSendMessage(JSONUtil.parse(paramMap).toString());
-                // 发送请求
+            barCodeBuildOne(resultAll, peRegister);
+        }
+        return Result.ok(resultAll);
+    }
+
+    private void barCodeBuildOne(StringBuffer resultAll, PeRegisterList peRegister) {
+        // 单个人员返信息
+        StringBuffer result;
+        // 日志信息
+        LogUtilNew log = LogUtilNew.getInstance(BAR_CODE_BUILD, peRegister);
+        try {
+            // 组装参数
+            Map<String, Object> paramMap = new HashMap<>();
+            // 患者id
+            paramMap.put(PAT_ID, peRegister.getPatId());
+            // 患者类型
+            paramMap.put(PAT_TYPE, peRegister.getPatType());
+            // 检验项目业务编号list
+            List<String> mainOrderIdList = new ArrayList<>();
+            // 获取用户检验项目
+            List<PatItems> patItems = peRegisterListMapper.getPatItems(peRegister.getPatientNo());
+            for (PatItems patItem : patItems) {
+                mainOrderIdList.add(patItem.getCureNo());
+            }
+            paramMap.put(MAIN_ORDER_ID_LIST, mainOrderIdList);
+            // 放发送的请求
+            log.setSendMessage(JSONUtil.parse(paramMap).toString());
+            // 发送请求
 //                String res = RequestUtil.go(BAR_CODE_BUILD.getUrl(), BAR_CODE_BUILD.getRequestType(), paramMap);
-                String res = "{\n" +
-                        "    \"success\": true,\n" +
-                        "    \"decorate\": true,\n" +
-                        "    \"code\": \"0000\",\n" +
-                        "    \"message\": \"成功\",\n" +
-                        "    \"data\": [\n" +
-                        "        {\n" +
-                        "            \"barcode\": \"2310051056\",\n" +
-                        "            \"patName\": \"22\",\n" +
-                        "            \"patSex\": \"男\",\n" +
-                        "            \"patAge\": \"33岁\",\n" +
-                        "            \"tubeColor\": \"浅红色\",\n" +
-                        "            \"createTime\": \"2023-10-05 11:18:15\",\n" +
-                        "            \"sampleClassName\": \"血清\",\n" +
-                        "            \"labItemName\": [\n" +
-                        "                \"社区查体生化项目\"\n" +
-                        "            ],\n" +
-                        "            \"labItemIdList\": [\n" +
-                        "                \"78016\"\n" +
-                        "            ],\n" +
-                        "            \"patNo\": \"2207011426\",\n" +
-                        "            \"patId\": \"2207011426\",\n" +
-                        "            \"receiptText\": null\n" +
-                        "        },\n" +
-                        "        {\n" +
-                        "            \"barcode\": \"2310051055\",\n" +
-                        "            \"patName\": \"22\",\n" +
-                        "            \"patSex\": \"男\",\n" +
-                        "            \"patAge\": \"33岁\",\n" +
-                        "            \"tubeColor\": \"浅红色\",\n" +
-                        "            \"createTime\": \"2023-10-05 11:18:15\",\n" +
-                        "            \"sampleClassName\": \"血清\",\n" +
-                        "            \"labItemName\": [\n" +
-                        "                \"社区查体生化项目\"\n" +
-                        "            ],\n" +
-                        "            \"labItemIdList\": [\n" +
-                        "                \"1506431\"\n" +
-                        "            ],\n" +
-                        "            \"patNo\": \"2207011426\",\n" +
-                        "            \"patId\": \"2207011426\",\n" +
-                        "            \"receiptText\": null\n" +
-                        "        },\n" +
-                        "        {\n" +
-                        "            \"barcode\": \"2310051054\",\n" +
-                        "            \"patName\": \"22\",\n" +
-                        "            \"patSex\": \"男\",\n" +
-                        "            \"patAge\": \"33岁\",\n" +
-                        "            \"tubeColor\": \"浅红色\",\n" +
-                        "            \"createTime\": \"2023-10-05 11:18:15\",\n" +
-                        "            \"sampleClassName\": \"血清\",\n" +
-                        "            \"labItemName\": [\n" +
-                        "                \"社区查体生化项目\"\n" +
-                        "            ],\n" +
-                        "            \"labItemIdList\": [\n" +
-                        "                \"1721009\"\n" +
-                        "            ],\n" +
-                        "            \"patNo\": \"2207011426\",\n" +
-                        "            \"patId\": \"2207011426\",\n" +
-                        "            \"receiptText\": null\n" +
-                        "        },\n" +
-                        "        {\n" +
-                        "            \"barcode\": \"2310051053\",\n" +
-                        "            \"patName\": \"22\",\n" +
-                        "            \"patSex\": \"男\",\n" +
-                        "            \"patAge\": \"33岁\",\n" +
-                        "            \"tubeColor\": \"浅红色\",\n" +
-                        "            \"createTime\": \"2023-10-05 11:18:15\",\n" +
-                        "            \"sampleClassName\": \"血清\",\n" +
-                        "            \"labItemName\": [\n" +
-                        "                \"社区查体生化项目\"\n" +
-                        "            ],\n" +
-                        "            \"labItemIdList\": [\n" +
-                        "                \"77834\"\n" +
-                        "            ],\n" +
-                        "            \"patNo\": \"2207011426\",\n" +
-                        "            \"patId\": \"2207011426\",\n" +
-                        "            \"receiptText\": null\n" +
-                        "        }\n" +
-                        "    ],\n" +
-                        "    \"traceId\": \"e6b21007-e2fc-41e0-86b9-55f3e2a06c8b\",\n" +
-                        "    \"exceptionName\": null,\n" +
-                        "    \"qualityMonitor\": null,\n" +
-                        "    \"ignoreQualityMonitor\": false,\n" +
-                        "    \"level\": \"info\",\n" +
-                        "    \"service\": \"msun-middle-business-lis\",\n" +
-                        "    \"businessException\": false\n" +
-                        "}";
-                // 存放接收数据
-                log.setReceiveMessage(res);
-                // 判断
-                if (!JSONUtil.isJson(res)) {
-                    throw new RuntimeException("结果返回的不是json数据！");
-                }
-                // 接受类进行接受
-                BarCodeBuildResponse response = JSONUtil.toBean(res, BarCodeBuildResponse.class);
-                if (BeanUtil.isEmpty(response) || CollUtil.isEmpty(response.getData())) {
-                    throw new RuntimeException("接收类接收为空！");
-                }
-                // 将条码信息进行维护
-                for (BarCodeBuildVo barCode : response.getData()) {
-                    // 循环 项目labItemId
-                    if (CollUtil.isEmpty(barCode.getLabItemIdList())) {
-                        log.log("labItemName为空");
-                        result = log.resultLog("labItemName为空");
-                    } else {
-                        for (String labItemId : barCode.getLabItemIdList()) {
-                       /*     // 先查询项目维护信息
-                            List<CheckProject> list = checkProjectService.list(new LambdaQueryWrapper<CheckProject>().eq(CheckProject::getLabItemId, labItemId));
-                            if (CollUtil.isEmpty(list)) {
-                                log.log("根据条码生成接口返回信息来的项目号：" + labItemId + "查询项目为空！");
-                                result = log.resultLog("根据条码生成接口返回信息来的项目号：" + labItemId + "查询项目为空！");
-                            } else {
-                                List<PatItems> patItem = peRegisterListMapper.getPatItem(peRegister.getPatientNo(), list.get(0).getMineItemRemork());
-                                if (CollUtil.isEmpty(patItem)) {
-                                    log.log("根据条码生成接口返回信息来的项目号：" + labItemId + "项目本地号："+ list.get(0).getMineItemRemork() +"查询用户具体的项目结果返回为空！");
-                                    result = log.resultLog("根据条码生成接口返回信息来的项目号：" + labItemId + "项目本地号："+ list.get(0).getMineItemRemork() +"查询用户具体的项目结果返回为空！");
-                                }else{
-                                    // 维护条码号
+            String res = "{\n" +
+                    "    \"success\": true,\n" +
+                    "    \"decorate\": true,\n" +
+                    "    \"code\": \"0000\",\n" +
+                    "    \"message\": \"成功\",\n" +
+                    "    \"data\": [\n" +
+                    "        {\n" +
+                    "            \"barcode\": \"2310051056\",\n" +
+                    "            \"patName\": \"22\",\n" +
+                    "            \"patSex\": \"男\",\n" +
+                    "            \"patAge\": \"33岁\",\n" +
+                    "            \"tubeColor\": \"浅红色\",\n" +
+                    "            \"createTime\": \"2023-10-05 11:18:15\",\n" +
+                    "            \"sampleClassName\": \"血清\",\n" +
+                    "            \"labItemName\": [\n" +
+                    "                \"社区查体生化项目\"\n" +
+                    "            ],\n" +
+                    "            \"labItemIdList\": [\n" +
+                    "                \"78016\"\n" +
+                    "            ],\n" +
+                    "            \"patNo\": \"2207011426\",\n" +
+                    "            \"patId\": \"2207011426\",\n" +
+                    "            \"receiptText\": null\n" +
+                    "        },\n" +
+                    "        {\n" +
+                    "            \"barcode\": \"2310051055\",\n" +
+                    "            \"patName\": \"22\",\n" +
+                    "            \"patSex\": \"男\",\n" +
+                    "            \"patAge\": \"33岁\",\n" +
+                    "            \"tubeColor\": \"浅红色\",\n" +
+                    "            \"createTime\": \"2023-10-05 11:18:15\",\n" +
+                    "            \"sampleClassName\": \"血清\",\n" +
+                    "            \"labItemName\": [\n" +
+                    "                \"社区查体生化项目\"\n" +
+                    "            ],\n" +
+                    "            \"labItemIdList\": [\n" +
+                    "                \"1506431\"\n" +
+                    "            ],\n" +
+                    "            \"patNo\": \"2207011426\",\n" +
+                    "            \"patId\": \"2207011426\",\n" +
+                    "            \"receiptText\": null\n" +
+                    "        },\n" +
+                    "        {\n" +
+                    "            \"barcode\": \"2310051054\",\n" +
+                    "            \"patName\": \"22\",\n" +
+                    "            \"patSex\": \"男\",\n" +
+                    "            \"patAge\": \"33岁\",\n" +
+                    "            \"tubeColor\": \"浅红色\",\n" +
+                    "            \"createTime\": \"2023-10-05 11:18:15\",\n" +
+                    "            \"sampleClassName\": \"血清\",\n" +
+                    "            \"labItemName\": [\n" +
+                    "                \"社区查体生化项目\"\n" +
+                    "            ],\n" +
+                    "            \"labItemIdList\": [\n" +
+                    "                \"1721009\"\n" +
+                    "            ],\n" +
+                    "            \"patNo\": \"2207011426\",\n" +
+                    "            \"patId\": \"2207011426\",\n" +
+                    "            \"receiptText\": null\n" +
+                    "        },\n" +
+                    "        {\n" +
+                    "            \"barcode\": \"2310051053\",\n" +
+                    "            \"patName\": \"22\",\n" +
+                    "            \"patSex\": \"男\",\n" +
+                    "            \"patAge\": \"33岁\",\n" +
+                    "            \"tubeColor\": \"浅红色\",\n" +
+                    "            \"createTime\": \"2023-10-05 11:18:15\",\n" +
+                    "            \"sampleClassName\": \"血清\",\n" +
+                    "            \"labItemName\": [\n" +
+                    "                \"社区查体生化项目\"\n" +
+                    "            ],\n" +
+                    "            \"labItemIdList\": [\n" +
+                    "                \"77834\"\n" +
+                    "            ],\n" +
+                    "            \"patNo\": \"2207011426\",\n" +
+                    "            \"patId\": \"2207011426\",\n" +
+                    "            \"receiptText\": null\n" +
+                    "        }\n" +
+                    "    ],\n" +
+                    "    \"traceId\": \"e6b21007-e2fc-41e0-86b9-55f3e2a06c8b\",\n" +
+                    "    \"exceptionName\": null,\n" +
+                    "    \"qualityMonitor\": null,\n" +
+                    "    \"ignoreQualityMonitor\": false,\n" +
+                    "    \"level\": \"info\",\n" +
+                    "    \"service\": \"msun-middle-business-lis\",\n" +
+                    "    \"businessException\": false\n" +
+                    "}";
+            // 存放接收数据
+            log.setReceiveMessage(res);
+            // 判断
+            if (!JSONUtil.isJson(res)) {
+                throw new RuntimeException("结果返回的不是json数据！");
+            }
+            // 接受类进行接受
+            BarCodeBuildResponse response = JSONUtil.toBean(res, BarCodeBuildResponse.class);
+            if (BeanUtil.isEmpty(response) || CollUtil.isEmpty(response.getData())) {
+                throw new RuntimeException("接收类接收为空！");
+            }
+            // 将条码信息进行维护
+            for (BarCodeBuildVo barCode : response.getData()) {
+                // 循环 项目labItemId
+                if (CollUtil.isEmpty(barCode.getLabItemIdList())) {
+                    log.log("labItemName为空");
+                    result = log.resultLog("labItemName为空");
+                } else {
+                    for (String labItemId : barCode.getLabItemIdList()) {
+                   /*     // 先查询项目维护信息
+                        List<CheckProject> list = checkProjectService.list(new LambdaQueryWrapper<CheckProject>().eq(CheckProject::getLabItemId, labItemId));
+                        if (CollUtil.isEmpty(list)) {
+                            log.log("根据条码生成接口返回信息来的项目号：" + labItemId + "查询项目为空！");
+                            result = log.resultLog("根据条码生成接口返回信息来的项目号：" + labItemId + "查询项目为空！");
+                        } else {
+                            List<PatItems> patItem = peRegisterListMapper.getPatItem(peRegister.getPatientNo(), list.get(0).getMineItemRemork());
+                            if (CollUtil.isEmpty(patItem)) {
+                                log.log("根据条码生成接口返回信息来的项目号：" + labItemId + "项目本地号："+ list.get(0).getMineItemRemork() +"查询用户具体的项目结果返回为空！");
+                                result = log.resultLog("根据条码生成接口返回信息来的项目号：" + labItemId + "项目本地号："+ list.get(0).getMineItemRemork() +"查询用户具体的项目结果返回为空！");
+                            }else{
+                                // 维护条码号
 //                                    curAssayMasterService.updateById(new CurAssayMaster().setAssayNo(patItem.get(0).getCureNo()).setBarCode(barCode.getBarcode()));
-                                }
-                            }*/
-                            // 维护到新的表格中
-                            List<LisApplyBarCodeReportId> list = lisApplyBarCodeReportIdService.list(new LambdaQueryWrapper<LisApplyBarCodeReportId>().eq(LisApplyBarCodeReportId::getPatientNo, peRegister.getPatientNo()).eq(LisApplyBarCodeReportId::getLabItemId, labItemId));
-                            log.log("根据条码接口返回的项目id（labItenId）找到的LIS检验申请信息：" + list);
-                            if (CollUtil.isEmpty(list)) {
-                                log.log("根据条码生成接口返回信息来的项目号：" + labItemId + "查询项目为空！");
-                                result = log.resultLog("根据条码生成接口返回信息来的项目号：" + labItemId + "查询项目为空！");
-                            } else {
-                                // 维护条码信息
-                                list.get(0).setBarCode(barCode.getBarcode());
-                                // 数据持久化
-                                lisApplyBarCodeReportIdService.updateById(list.get(0));
                             }
+                        }*/
+                        // 维护到新的表格中
+                        List<LisApplyBarCodeReportId> list = lisApplyBarCodeReportIdService.list(new LambdaQueryWrapper<LisApplyBarCodeReportId>().eq(LisApplyBarCodeReportId::getPatientNo, peRegister.getPatientNo()).eq(LisApplyBarCodeReportId::getLabItemId, labItemId));
+                        log.log("根据条码接口返回的项目id（labItenId）找到的LIS检验申请信息：" + list);
+                        if (CollUtil.isEmpty(list)) {
+                            log.log("根据条码生成接口返回信息来的项目号：" + labItemId + "查询项目为空！");
+                            result = log.resultLog("根据条码生成接口返回信息来的项目号：" + labItemId + "查询项目为空！");
+                        } else {
+                            // 维护条码信息
+                            list.get(0).setBarCode(barCode.getBarcode());
+                            // 数据持久化
+                            lisApplyBarCodeReportIdService.updateById(list.get(0));
                         }
                     }
                 }
-                // 维护条码生成成功 1: 成功 0:失败
-                peRegister.setIsBarCodeBuild(StaticValue.ONE.getCode());
-                // 数据持久化
-                this.updateById(peRegister);
-                // 维护返回信息
-                log.success(true);
-                log.log("条码信息生成成功！");
-                result = log.resultLog("条码信息生成成功！");
-            } catch (Exception e) {
-                log.success(false);
-                log.log("报错：" + e.getMessage());
-                result = log.resultLog("报错：" + e.getMessage());
-            } finally {
-                // 保存日志
-                log.saveLog();
             }
-            // 将单个信息添加到中返回信息中
-            resultAll.append(result);
+            // 维护条码生成成功 1: 成功 0:失败
+            peRegister.setIsBarCodeBuild(StaticValue.ONE.getCode());
+            // 数据持久化
+            this.updateById(peRegister);
+            // 维护返回信息
+            log.success(true);
+            log.log("条码信息生成成功！");
+            result = log.resultLog("条码信息生成成功！");
+        } catch (Exception e) {
+            log.success(false);
+            log.log("报错：" + e.getMessage());
+            result = log.resultLog("报错：" + e.getMessage());
+        } finally {
+            // 保存日志
+            log.saveLog();
         }
-        return Result.ok(resultAll);
+        // 将单个信息添加到中返回信息中
+        resultAll.append(result);
     }
 
     /**
@@ -781,6 +797,77 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
             }
         }
         return Result.ok(resultAll);
+    }
+
+    /**
+     * @description: 多重操作
+     * @param: ids
+     * @return: org.jeecg.common.api.vo.Result
+     * @author lhr
+     * @date: 2023/10/20 20:20
+     */
+    @Override
+    public Result buttonAll(LISApplyInfo lisApplyInfo) {
+        StringBuffer resultAll = new StringBuffer();
+        List<PeRegisterList> peRegisterLists = this.listByIds(lisApplyInfo.getPatIds());
+        // 循环数据
+        for (PeRegisterList peRegister : peRegisterLists) {
+            String step = this.calculPersonStep(peRegister);
+            switch (step) {
+                case "1":
+                    // 生成patId
+                    personMake(resultAll, peRegister);
+                    // 判断是否成功生成patId
+                    PeRegisterList byId = this.getById(peRegister.getId());
+                    if (StrUtil.isEmpty(byId.getPatId())) {
+                        // 重新生成parId
+                        personMake(resultAll, peRegister);
+                    }
+                    // 生成LIS检验申请
+                    LISApplyOne(lisApplyInfo, resultAll, peRegister);
+                    // 生成条码
+                    barCodeBuildOne(resultAll, peRegister);
+                    break;
+                case "2":
+                    // 生成LIS检验申请
+                    LISApplyOne(lisApplyInfo, resultAll, peRegister);
+                    // 生成条码
+                    barCodeBuildOne(resultAll, peRegister);
+                    break;
+                case "3":
+                    // 生成条码
+                    barCodeBuildOne(resultAll, peRegister);
+                    break;
+                default:
+                    break;
+            }
+        }
+        return Result.ok(resultAll);
+    }
+
+    private String calculPersonStep(PeRegisterList peRegister) {
+        // 判断有没有维护patId 是否需要人员查询，和创建档案
+        if (StrUtil.isEmpty(peRegister.getPatId())) {
+            return StaticValue.ONE.getCode();
+        } else if (!StaticValue.ONE.getCode().equals(peRegister.getIsLisApply())) {
+            return StaticValue.TWO.getCode();
+        } else if (!StaticValue.ONE.getCode().equals(peRegister.getIsBarCodeBuild())) {
+            return StaticValue.THREE.getCode();
+        } else {
+            return StaticValue.ZERO.getCode();
+        }
+    }
+
+    private void personMake(StringBuffer resultAll, PeRegisterList peRegister) {
+        // 人员查询
+        personSearchOne(resultAll, peRegister);
+        // 查询人员是否维护了patid没有的话那就创建档案
+        PeRegisterList one = this.getOne(new LambdaQueryWrapper<PeRegisterList>().eq(PeRegisterList::getId, peRegister.getId()));
+        // 判断有没有查询过
+        if (StrUtil.isEmpty(one.getPatId())) {
+            // 生成信息
+            personCreateOne(resultAll, peRegister);
+        }
     }
 
     /**

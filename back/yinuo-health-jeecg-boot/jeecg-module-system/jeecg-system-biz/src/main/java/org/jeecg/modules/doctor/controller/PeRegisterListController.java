@@ -248,4 +248,19 @@ public class PeRegisterListController extends JeecgController<PeRegisterList, IP
         return peRegisterListService.newLogTest(ids);
     }
 
+    /**
+     * @description: 多重操作
+     * @param: ids
+     * @return: org.jeecg.common.api.vo.Result
+     * @author lhr
+     * @date: 10/11/23 11:23 AM
+     */
+    @AutoLog(value = "多重操作")
+    @ApiOperation(value = "多重操作", notes = "多重操作")
+    @RequiresPermissions("doctor:pe_register_list:buttonAll")
+    @PostMapping("/buttonAll")
+    public Result buttonAll(@RequestBody LISApplyInfo lisApplyInfo) {
+        return peRegisterListService.buttonAll(lisApplyInfo);
+    }
+
 }

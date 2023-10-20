@@ -17,6 +17,7 @@ enum Api {
   LisApply = '/doctor/peRegisterList/LISApply',
   barCodeBuild = '/doctor/peRegisterList/barCodeBuild/',
   reportSearch = '/doctor/peRegisterList/reportSearch/',
+  buttonAll = '/doctor/peRegisterList/buttonAll',
 }
 /**
  * 导出api
@@ -98,5 +99,9 @@ export const barCodeBuild = (ids) => {
 
 export const reportSearch = (ids) => {
   return defHttp.get({ url: Api.reportSearch + ids });
+};
+
+export const buttonAll = (params) => {
+    return defHttp.post({ url: Api.buttonAll, params });
 };
 

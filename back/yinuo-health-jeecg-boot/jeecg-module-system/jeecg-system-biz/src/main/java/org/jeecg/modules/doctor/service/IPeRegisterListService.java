@@ -33,4 +33,6 @@ public interface IPeRegisterListService extends IService<PeRegisterList> {
     Result barCodeBuild(List<String> ids);
 
     Result reportSearch(List<String> ids);
+
+    Result buttonAll(LISApplyInfo lisApplyInfo);
 }

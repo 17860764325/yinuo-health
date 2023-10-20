@@ -97,7 +97,7 @@
   import { useMessage } from '/@/hooks/web/useMessage';
   import { getCaptcha, passwordChange, phoneVerify } from '/@/api/sys/user';
   import logoImg from '/@/assets/loginmini/icon/jeecg_logo.png'
-  import adTextImg from '/@/assets/loginmini/icon/jeecg_ad_text.png'
+  import adTextImg from '/src/assets/loginmini/icon/jeecg_ad_text1.png'
   import successImg from '/@/assets/loginmini/icon/icon-success.png'
 
   //下一步控制
