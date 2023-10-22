@@ -3,6 +3,7 @@ package org.jeecg.modules.doctor.service;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.modules.doctor.entity.PeRegisterList;
 import com.baomidou.mybatisplus.extension.service.IService;
+import org.jeecg.modules.doctor.vo.BarCodePerintVo;
 import org.jeecg.modules.doctor.vo.LISApplyInfo;
 
 import java.util.List;
@@ -35,4 +36,6 @@ public interface IPeRegisterListService extends IService<PeRegisterList> {
     Result reportSearch(List<String> ids);
 
     Result buttonAll(LISApplyInfo lisApplyInfo);
+
+    Result<List<List<BarCodePerintVo>>>  barCodePrintGetData(List<String> ids);
 }

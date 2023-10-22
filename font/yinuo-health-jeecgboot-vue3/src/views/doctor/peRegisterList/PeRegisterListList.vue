@@ -2,23 +2,40 @@
   <div>
     <!--引用表格-->
     <BasicTable @register="registerTable" :rowSelection="rowSelection" :loading="loading"
-      @selection-change="sleectChange">
+                @selection-change="sleectChange">
       <!--插槽:table标题-->
       <template #tableTitle>
         <!--          <a-button type="primary" @click="handleAdd" preIcon="ant-design:plus-outlined"> 新增</a-button>-->
         <!--          <a-button  type="primary" preIcon="ant-design:export-outlined" @click="onExportXls"> 导出</a-button>-->
         <!--          <j-upload-button  type="primary" preIcon="ant-design:import-outlined" @click="onImportXls">导入</j-upload-button>-->
 
-<!--        <a-button type="primary" @click="newLogTestClick" > 新日志测试</a-button>-->
-        <a-button type="primary" @click="buttonAllClick" v-if="!isDisabledAuth('doctor:pe_register_list:buttonAll')">  条码生成</a-button>
-        <a-button type="primary" @click="personSearchClick" :icon="h(SearchOutlined)" v-if="!isDisabledAuth('doctor:pe_register_list:personSearch')"> 人员档案查询</a-button>
-        <a-button type="primary" @click="personCreateClick" preIcon="ant-design:plus-outlined" v-if="!isDisabledAuth('doctor:pe_register_list:personCreate')"> 创建人员档案</a-button>
-        <a-button type="primary" @click="LISApply" :icon="h(ArrowUpOutlined)" :disabled="LISApplyDisabled" v-if="!isDisabledAuth('doctor:pe_register_list:LISApply')"> LIS检验申请
+        <!--        <a-button type="primary" @click="newLogTestClick" > 新日志测试</a-button>-->
+        <a-button type="primary" @click="buttonAllClick"
+                  v-if="!isDisabledAuth('doctor:pe_register_list:buttonAll')"> 条码生成
         </a-button>
-        <a-button type="primary" @click="barCodebuildClick" :icon="h(BarcodeOutlined)" :disabled="barCodeBuildDisabled" v-if="!isDisabledAuth('doctor:pe_register_list:barCodeBuild')">
-          条码生成old</a-button>
+        <a-button type="primary" @click="personSearchClick" :icon="h(SearchOutlined)"
+                  v-if="!isDisabledAuth('doctor:pe_register_list:personSearch')"> 人员档案查询
+        </a-button>
+        <a-button type="primary" @click="personCreateClick" preIcon="ant-design:plus-outlined"
+                  v-if="!isDisabledAuth('doctor:pe_register_list:personCreate')"> 创建人员档案
+        </a-button>
+        <a-button type="primary" @click="LISApply" :icon="h(ArrowUpOutlined)"
+                  :disabled="LISApplyDisabled"
+                  v-if="!isDisabledAuth('doctor:pe_register_list:LISApply')"> LIS检验申请
+        </a-button>
+        <a-button type="primary" @click="barCodebuildClick" :icon="h(BarcodeOutlined)"
+                  :disabled="barCodeBuildDisabled"
+                  v-if="!isDisabledAuth('doctor:pe_register_list:barCodeBuild')">
+          条码生成old
+        </a-button>
+        <a-button type="primary" @click="barCodePrintClick" :icon="h(FileSearchOutlined)"
+                  :disabled="reportSearchDisabled"
+                  v-if="!isDisabledAuth('doctor:pe_register_list:barCodePrintGetData')"> 条码打印
+        </a-button>
         <a-button type="primary" @click="reportSearchClick" :icon="h(FileSearchOutlined)"
-          :disabled="reportSearchDisabled" v-if="!isDisabledAuth('doctor:pe_register_list:reportSearch')"> 报告查询</a-button>
+                  :disabled="reportSearchDisabled"
+                  v-if="!isDisabledAuth('doctor:pe_register_list:reportSearch')"> 报告查询
+        </a-button>
 
         <a-dropdown v-if="selectedRowKeys.length > 0">
           <template #overlay>
@@ -33,15 +50,15 @@
                 创建人员档案
               </a-menu-item>
               <a-menu-item key="2" @click="LISApply">
-                <ArrowUpOutlined />
+                <ArrowUpOutlined/>
                 LIS检验申请
               </a-menu-item>
               <a-menu-item key="3" @click="barCodebuildClick">
-                <BarcodeOutlined />
+                <BarcodeOutlined/>
                 条码打印
               </a-menu-item>
               <a-menu-item key="4" @click="reportSearchClick">
-                <FileSearchOutlined />
+                <FileSearchOutlined/>
                 报告生成
               </a-menu-item>
             </a-menu>
@@ -72,7 +89,8 @@
 
       <!--操作栏-->
       <template #action="{ record }">
-        <TableAction :actions="getTableAction(record)" :dropDownActions="getDropDownAction(record)" />
+        <TableAction :actions="getTableAction(record)"
+                     :dropDownActions="getDropDownAction(record)"/>
       </template>
       <!--字段回显插槽-->
       <template #htmlSlot="{ text }">
@@ -84,24 +102,26 @@
       </template>
       <template #fileSlot="{ text }">
         <span v-if="!text" style="font-size: 12px;font-style: italic;">无文件</span>
-        <a-button v-else :ghost="true" type="primary" preIcon="ant-design:download-outlined" size="small"
-          @click="downloadFile(text)">下载
+        <a-button v-else :ghost="true" type="primary" preIcon="ant-design:download-outlined"
+                  size="small"
+                  @click="downloadFile(text)">下载
         </a-button>
       </template>
     </BasicTable>
     <!-- 表单区域 -->
     <PeRegisterListModal @register="registerModal" @success="handleSuccess"></PeRegisterListModal>
-    <Modal @register="registerLisApplyModal" :ids="ids" @lodding="loading = true" @success="handleSuccess"></Modal>
+    <Modal @register="registerLisApplyModal" :ids="ids" @lodding="loading = true"
+           @success="handleSuccess"></Modal>
   </div>
 </template>
 
 <script lang="ts" name="doctor-peRegisterList" setup>
-import { ref, computed, unref } from 'vue';
-import { BasicTable, useTable, TableAction } from '/@/components/Table';
-import { useModal } from '/@/components/Modal';
-import { useListPage } from '/@/hooks/system/useListPage'
+import {ref, computed, unref} from 'vue';
+import {BasicTable, useTable, TableAction} from '/@/components/Table';
+import {useModal} from '/@/components/Modal';
+import {useListPage} from '/@/hooks/system/useListPage'
 import PeRegisterListModal from './components/PeRegisterListModal.vue'
-import { columns, searchFormSchema } from './PeRegisterList.data';
+import {columns, searchFormSchema} from './PeRegisterList.data';
 import {
   list,
   deleteOne,
@@ -113,27 +133,39 @@ import {
   barCodeBuild,
   reportSearch,
   buttonAll,
+  barCodePrintGetData,
   newLogTest
 } from './PeRegisterList.api';
-import { downloadFile } from '/@/utils/common/renderUtils';
-import { getAreaTextByCode } from "../../../components/Form/src/utils/Area";
-import { h } from 'vue';
-import { SearchOutlined, ArrowUpOutlined, BarcodeOutlined, FileSearchOutlined } from '@ant-design/icons-vue';
-import { useMessage } from "@/hooks/web/useMessage";
+import {downloadFile} from '/@/utils/common/renderUtils';
+import {getAreaTextByCode} from "../../../components/Form/src/utils/Area";
+import {h} from 'vue';
+import {
+  SearchOutlined,
+  ArrowUpOutlined,
+  BarcodeOutlined,
+  FileSearchOutlined
+} from '@ant-design/icons-vue';
+import {useMessage} from "@/hooks/web/useMessage";
 import Modal from './components/LISApplyModal.vue';
-import { Tag, Avatar } from 'ant-design-vue';
+import {Tag, Avatar} from 'ant-design-vue';
 import {usePermission} from "@/hooks/web/usePermission";
+// import {getLodop} from '../../../assets/js/Lodop.js'
+// import {  getLodop } from '../../../assets/js/LodopFuncs'
 
-const { createMessage, createErrorModal, createConfirm } = useMessage();
+const {createMessage, createErrorModal, createConfirm} = useMessage();
 
 const checkedKeys = ref<Array<string | number>>([]);
 //注册model
-const [registerModal, { openModal }] = useModal();
+const [registerModal, {openModal}] = useModal();
 // 注册LIS申请的弹窗
-const [registerLisApplyModal, { openModal: openLisApplyModal, closeModal: closeLisApplyModal, setModalProps: setLisApplyModalProps }] = useModal();
-const { isDisabledAuth } = usePermission();
+const [registerLisApplyModal, {
+  openModal: openLisApplyModal,
+  closeModal: closeLisApplyModal,
+  setModalProps: setLisApplyModalProps
+}] = useModal();
+const {isDisabledAuth} = usePermission();
 //注册table数据
-const { prefixCls, tableContext, onExportXls, onImportXls } = useListPage({
+const {prefixCls, tableContext, onExportXls, onImportXls} = useListPage({
   tableProps: {
     title: '人员信息查询',
     api: list,
@@ -154,7 +186,7 @@ const { prefixCls, tableContext, onExportXls, onImportXls } = useListPage({
       fixed: 'right'
     },
     // 设置列表查询的排序字段，默认是 createTime 。
-    defSort: { column: 'patientNo', order: 'desc' }
+    defSort: {column: 'patientNo', order: 'desc'}
   },
   exportConfig: {
     name: "人员信息查询",
@@ -168,7 +200,10 @@ const { prefixCls, tableContext, onExportXls, onImportXls } = useListPage({
 
 const allButtonShow = ref()
 
-const [registerTable, { reload, setLoading, clearSelectedRowKeys }, { rowSelection, selectedRowKeys }] = tableContext
+const [registerTable, {reload, setLoading, clearSelectedRowKeys}, {
+  rowSelection,
+  selectedRowKeys
+}] = tableContext
 
 // LIS检验申请是否需要禁用
 const LISApplyDisabled = ref(false)
@@ -183,11 +218,13 @@ const personCreateDisabled = ref(false)
 const loading = ref(false)
 // 获取选中人员
 const ids = ref<Array<String>>([])
+// 定义lodop
+// const LODOP = getLodop();
 
 /**
  * 选中修改事件
  */
-function sleectChange({ keys, rows }) {
+function sleectChange({keys, rows}) {
   console.log(123)
   // rows：你选中的那些行的数据
   LISApplyDisabled.value = false
@@ -302,7 +339,7 @@ async function LISApply() {
     // 如果选择的人都是没有患者id的那么就提示
     if (ids.value.length > 0) {
       // 弹出表单弹窗
-      setLisApplyModalProps({ useWrapper: true });
+      setLisApplyModalProps({useWrapper: true});
       openLisApplyModal(true, {
         ids: ids.value,
         type: 'lis'
@@ -377,6 +414,78 @@ async function reportSearchClick() {
 }
 
 /**
+ * 条码打印
+ */
+async function barCodePrintClick() {
+// 获取后台数据
+  if (rowSelection.selectedRows.length === 0) {
+    createMessage.warning("请选择数据！")
+  } else {
+    const ids = ref<Array<String>>([])
+    rowSelection.selectedRows.forEach(item => {
+      if (item.isBarCodeBuild === "1") {
+        ids.value.push(item.id)
+      }
+    })
+    if (ids.value.length > 0) {
+      await barCodePrintGetData(ids.value).then((res)=>{
+        // 获取到后端返回前端数据了
+        console.log(res)
+        // 直接对res进行操作,循环传输
+        // res.map(item =>{
+        //   item.map(personItem=>{
+        //     CreatePrintPage(personItem)
+        //     // LODOP.PRINT()// 直接打印
+        //     LODOP.PREVIEW()// 打印预览
+        //   })
+        // })
+      })
+    } else {
+      createMessage.warning("请选择已经生成条码的数据！")
+    }
+
+  }
+}
+
+
+// 打印操作
+//   function CreatePrintPage(data) {
+//     // LODOP.PRINT_INIT("条形码");
+//     LODOP.SET_PRINT_PAGESIZE(3, '80mm', 0, "")
+//     LODOP.SET_PRINT_MODE("PRINT_PAGE_PERCENT", 'Full-Width');
+//     // LODOP.SET_PRINT_MODE("FULL_WIDTH_FOR_OVERFLOW", true);
+//     LODOP.SET_PRINT_MODE("FULL_HEIGHT_FOR_OVERFLOW", true);
+//     // LODOP.SET_PRINT_STYLE("FontName",'微软雅黑');
+//     //纯文本字体间距
+//     // LODOP.SET_PRINT_STYLE("LetterSpacing", 35);
+//     // //字号
+//     LODOP.SET_PRINT_STYLE("FontSize", 8);
+//     LODOP.SET_PRINT_STYLE("Bold", 1);
+//     // LODOP.SET_PRINT_STYLE("PenWidth", 5);
+//
+//     LODOP.ADD_PRINT_TEXT(18, '2mm', '50mm', 0, "xxxxxx服务中心")
+//
+//     LODOP.ADD_PRINT_TEXT(18, '48mm', '50mm', 0, "打印日期：")
+//     // LODOP.SET_PRINT_STYLEA(0, "Alignment", 1);
+//     // LODOP.SET_PRINT_STYLEA(0, "HOrient", 1);
+//     // 条码打印
+//     LODOP.ADD_PRINT_BARCODE(40, '2mm', '79mm', 85, "128Auto", data.barCode);
+//     LODOP.SET_PRINT_STYLEA(0, "AlignJustify", 2);
+//     // LODOP.SET_PRINT_STYLEA(0, "FontSize", 14);
+//     // LODOP.SET_PRINT_STYLEA(0,"HOrient",3);
+//
+//     LODOP.ADD_PRINT_TEXT(135, '2mm', '80mm', 15, "所属单位: " + 'xxxxxx单位')
+//
+//     LODOP.ADD_PRINT_TEXT(150, '2mm', '80mm', 15, "设备名称: " + 'xxxxxxx设备')
+//     // LODOP.SET_PRINT_STYLEA(0, "HOrient", 1);
+//     // LODOP.SET_PRINT_STYLEA(0, "HOrient", 1);
+//     // 黑龙江省电工仪器仪表工程技术研究中心有限公司
+//     LODOP.ADD_PRINT_TEXT(165, '2mm', '80mm', 10, "生产厂家: " + 'xxxxxxxxxxx厂家')
+//   }
+
+
+
+/**
  * 完成插槽，字以及颜色
  */
 function soltFontSize(value: string) {
@@ -404,12 +513,12 @@ async function buttonAllClick() {
     createMessage.warning("请选择数据！")
   } else {
     rowSelection.selectedRows.forEach(item => {
-        ids.value.push(item.id)
+      ids.value.push(item.id)
     })
     // 如果选择的人都是没有患者id的那么就提示
     if (ids.value.length > 0) {
       // 弹出表单弹窗
-      setLisApplyModalProps({ useWrapper: true });
+      setLisApplyModalProps({useWrapper: true});
       openLisApplyModal(true, {
         ids: ids.value,
         type: 'all'
@@ -486,14 +595,14 @@ function handleDetail(record: Recordable) {
  * 删除事件
  */
 async function handleDelete(record) {
-  await deleteOne({ id: record.id }, handleSuccess);
+  await deleteOne({id: record.id}, handleSuccess);
 }
 
 /**
  * 批量删除事件
  */
 async function batchHandleDelete() {
-  await batchDelete({ ids: selectedRowKeys.value }, handleSuccess);
+  await batchDelete({ids: selectedRowKeys.value}, handleSuccess);
 }
 
 /**

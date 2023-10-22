@@ -16,6 +16,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 
 import org.jeecg.common.system.base.controller.JeecgController;
+import org.jeecg.modules.doctor.vo.BarCodePerintVo;
 import org.jeecg.modules.doctor.vo.LISApplyInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -262,5 +263,21 @@ public class PeRegisterListController extends JeecgController<PeRegisterList, IP
     public Result buttonAll(@RequestBody LISApplyInfo lisApplyInfo) {
         return peRegisterListService.buttonAll(lisApplyInfo);
     }
+
+    /**
+     * @description: 打印条码获取数据
+     * @param: ids
+     * @return: org.jeecg.common.api.vo.Result
+     * @author lhr
+     * @date: 10/11/23 11:23 AM
+     */
+    @AutoLog(value = "打印条码获取数据")
+    @ApiOperation(value = "打印条码获取数据", notes = "打印条码获取数据")
+    @RequiresPermissions("doctor:pe_register_list:barCodePrintGetData")
+    @GetMapping("/barCodePrintGetData/{ids}")
+    public Result<List<List<BarCodePerintVo>>>  barCodePrintGetData(@PathVariable("ids") List<String> ids) {
+        return peRegisterListService.barCodePrintGetData(ids);
+    }
+
 
 }
