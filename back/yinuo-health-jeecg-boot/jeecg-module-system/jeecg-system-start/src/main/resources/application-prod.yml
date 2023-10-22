@@ -52,6 +52,7 @@ spring:
             instanceName: MyScheduler
             instanceId: AUTO
           jobStore:
+            selectWithLockSQL: SELECT* FROM {0}LOCKS UPDLOCK WHERE LOCK_NAME = ?
             class: org.springframework.scheduling.quartz.LocalDataSourceJobStore
             driverDelegateClass: org.quartz.impl.jdbcjobstore.StdJDBCDelegate
             tablePrefix: QRTZ_
@@ -69,6 +70,7 @@ spring:
     time-zone: GMT+8
   jpa:
     open-in-view: false
+    database-platform: org.hibernate.dialect.SQLServerDialect
   aop:
     proxy-target-class: true
   #配置freemarker
@@ -118,7 +120,7 @@ spring:
         timeBetweenEvictionRunsMillis: 60000
         # 配置一个连接在池中最小生存的时间，单位是毫秒
         minEvictableIdleTimeMillis: 300000
-        validationQuery: SELECT 1 FROM DUAL
+        validationQuery: SELECT 1
         testWhileIdle: true
         testOnBorrow: false
         testOnReturn: false
@@ -126,17 +128,17 @@ spring:
         poolPreparedStatements: true
         maxPoolPreparedStatementPerConnectionSize: 20
         # 配置监控统计拦截的filters，去掉后监控界面sql无法统计，'wall'用于防火墙
-        filters: stat,wall,slf4j
+        filters: stat,slf4j
         # 打开mergeSql功能；慢SQL记录
         stat:
           merge-sql: true
           slow-sql-millis: 5000
       datasource:
         master:
-          url: jdbc:mysql://127.0.0.1:3306/jeecg-boot?characterEncoding=UTF-8&useUnicode=true&useSSL=false&tinyInt1isBit=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
-          username: root
-          password: root
-          driver-class-name: com.mysql.cj.jdbc.Driver
+          url: jdbc:sqlserver://127.0.0.1:1433;DatabaseName=HospDataV9;
+          username: sa
+          password: sasasa123!@#
+          driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
           # 多数据源配置
           #multi-datasource1:
           #url: jdbc:mysql://localhost:3306/jeecg-boot2?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
@@ -183,7 +185,7 @@ jeecg:
     app: http://localhost:8051
   path:
     #文件上传根目录 设置
-    upload: /opt/jeecg-boot/upload
+    upload: D:\uploadFile
     #webapp文件路径
     webapp: /opt/jeecg-boot/webapp
   shiro:
@@ -199,7 +201,7 @@ jeecg:
   elasticsearch:
     cluster-name: jeecg-ES
     cluster-nodes: 127.0.0.1:9200
-    check-enabled: true
+    check-enabled: false
   # 在线预览文件服务器地址配置
   file-view-domain: http://fileview.jeecg.com
   # minio文件上传

@@ -192,7 +192,7 @@ function sleectChange({ keys, rows }) {
   // rows：你选中的那些行的数据
   LISApplyDisabled.value = false
   barCodeBuildDisabled.value = false
-  reportSearchDisabled.value = false
+  // reportSearchDisabled.value = false
   rows.map(item => {
     if (item.isLisApply === '1') {
       LISApplyDisabled.value = true
@@ -200,9 +200,9 @@ function sleectChange({ keys, rows }) {
     if (item.isBarCodeBuild === '1' || item.isLisApply !== '1') {
       barCodeBuildDisabled.value = true
     }
-    if (item.isReport === '1' || item.isLisApply !== '1' || item.isBarCodeBuild !== '1') {
-      reportSearchDisabled.value = true
-    }
+    // if (item.isReport === '1' || item.isLisApply !== '1' || item.isBarCodeBuild !== '1') {
+    //   reportSearchDisabled.value = true
+    // }
   })
 }
 
@@ -220,6 +220,7 @@ async function personSearchClick() {
       ids.value.push(item.id)
     })
     console.log(ids.value)
+    loading.value = true
     await personSearch(ids.value).then(res => {
       createConfirm({
         iconType: 'info',
@@ -228,9 +229,13 @@ async function personSearchClick() {
         okText: '确认',
         onOk: function () {
           reload()
+          clearSelectedRowKeys()
+          loading.value = false
         },
         onCancel: function () {
           reload()
+          clearSelectedRowKeys()
+          loading.value = false
         },
       });
     })
@@ -253,7 +258,9 @@ async function personCreateClick() {
         ids.value.push(item.id)
       }
     })
+
     if (ids.value.length > 0) {
+      loading.value = true
       await personCreate(ids.value).then(res => {
         createConfirm({
           iconType: 'info',
@@ -262,9 +269,13 @@ async function personCreateClick() {
           okText: '确认',
           onOk: function () {
             reload()
+            clearSelectedRowKeys()
+            loading.value = false
           },
           onCancel: function () {
             reload()
+            clearSelectedRowKeys()
+            loading.value = false
           },
         });
       })
@@ -385,7 +396,7 @@ function soltColor(value: string) {
 }
 
 /**
- * LIS检验申请提交
+ * 多重操作
  */
 async function buttonAllClick() {
   // 如果没有选中的数据提示请选择消息
