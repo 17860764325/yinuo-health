@@ -150,7 +150,7 @@ import Modal from './components/LISApplyModal.vue';
 import {Tag, Avatar} from 'ant-design-vue';
 import {usePermission} from "@/hooks/web/usePermission";
 // import {getLodop} from '../../../assets/js/Lodop.js'
-// import {  getLodop } from '../../../assets/js/LodopFuncs'
+import {  getLodop } from '../../../assets/js/LodopFuncs'
 
 const {createMessage, createErrorModal, createConfirm} = useMessage();
 
@@ -218,8 +218,7 @@ const personCreateDisabled = ref(false)
 const loading = ref(false)
 // 获取选中人员
 const ids = ref<Array<String>>([])
-// 定义lodop
-// const LODOP = getLodop();
+
 
 /**
  * 选中修改事件
@@ -429,16 +428,19 @@ async function barCodePrintClick() {
     })
     if (ids.value.length > 0) {
       await barCodePrintGetData(ids.value).then((res)=>{
+        // 定义lodop
+        const LODOP = getLodop();
         // 获取到后端返回前端数据了
         console.log(res)
         // 直接对res进行操作,循环传输
-        // res.map(item =>{
-        //   item.map(personItem=>{
-        //     CreatePrintPage(personItem)
-        //     // LODOP.PRINT()// 直接打印
-        //     LODOP.PREVIEW()// 打印预览
-        //   })
-        // })
+        res.map(item =>{
+          item.map(personItem=>{
+            CreatePrintPage(personItem,LODOP)
+            console.log(personItem  )
+            LODOP.PRINT()// 直接打印
+            // LODOP.PREVIEW()// 打印预览
+          })
+        })
       })
     } else {
       createMessage.warning("请选择已经生成条码的数据！")
@@ -449,39 +451,51 @@ async function barCodePrintClick() {
 
 
 // 打印操作
-//   function CreatePrintPage(data) {
-//     // LODOP.PRINT_INIT("条形码");
-//     LODOP.SET_PRINT_PAGESIZE(3, '80mm', 0, "")
-//     LODOP.SET_PRINT_MODE("PRINT_PAGE_PERCENT", 'Full-Width');
-//     // LODOP.SET_PRINT_MODE("FULL_WIDTH_FOR_OVERFLOW", true);
-//     LODOP.SET_PRINT_MODE("FULL_HEIGHT_FOR_OVERFLOW", true);
-//     // LODOP.SET_PRINT_STYLE("FontName",'微软雅黑');
-//     //纯文本字体间距
-//     // LODOP.SET_PRINT_STYLE("LetterSpacing", 35);
-//     // //字号
-//     LODOP.SET_PRINT_STYLE("FontSize", 8);
-//     LODOP.SET_PRINT_STYLE("Bold", 1);
-//     // LODOP.SET_PRINT_STYLE("PenWidth", 5);
-//
-//     LODOP.ADD_PRINT_TEXT(18, '2mm', '50mm', 0, "xxxxxx服务中心")
-//
-//     LODOP.ADD_PRINT_TEXT(18, '48mm', '50mm', 0, "打印日期：")
-//     // LODOP.SET_PRINT_STYLEA(0, "Alignment", 1);
-//     // LODOP.SET_PRINT_STYLEA(0, "HOrient", 1);
-//     // 条码打印
-//     LODOP.ADD_PRINT_BARCODE(40, '2mm', '79mm', 85, "128Auto", data.barCode);
-//     LODOP.SET_PRINT_STYLEA(0, "AlignJustify", 2);
-//     // LODOP.SET_PRINT_STYLEA(0, "FontSize", 14);
-//     // LODOP.SET_PRINT_STYLEA(0,"HOrient",3);
-//
-//     LODOP.ADD_PRINT_TEXT(135, '2mm', '80mm', 15, "所属单位: " + 'xxxxxx单位')
-//
-//     LODOP.ADD_PRINT_TEXT(150, '2mm', '80mm', 15, "设备名称: " + 'xxxxxxx设备')
-//     // LODOP.SET_PRINT_STYLEA(0, "HOrient", 1);
-//     // LODOP.SET_PRINT_STYLEA(0, "HOrient", 1);
-//     // 黑龙江省电工仪器仪表工程技术研究中心有限公司
-//     LODOP.ADD_PRINT_TEXT(165, '2mm', '80mm', 10, "生产厂家: " + 'xxxxxxxxxxx厂家')
-//   }
+  function CreatePrintPage(data,LODOP) {
+    LODOP.PRINT_INIT("条形码");
+    // 纸张定义
+    LODOP.SET_PRINT_PAGESIZE(1, '50mm', '30mm', "条码码")
+    // 字段问题
+    LODOP.SET_PRINT_MODE("FULL_HEIGHT_FOR_OVERFLOW", true);
+    LODOP.SET_PRINT_STYLE("FontName",'微软雅黑');
+    // 字号
+
+    LODOP.SET_PRINT_STYLEA(0, "HOrient", 1);
+    // 条码打印
+    LODOP.ADD_PRINT_BARCODE('4mm', '4mm', '34mm', '15mm', "128Auto", data.barCode);
+    LODOP.SET_PRINT_STYLEA(0, "AlignJustify", 2);
+
+    // 设置文本
+    // 试管颜色
+    LODOP.ADD_PRINT_TEXT('4mm', '40mm', '30mm', 15, data.tubeColor===null?"浅红色":data.tubeColor)
+    // 试管类型
+    LODOP.ADD_PRINT_TEXT('8mm', '40mm', '30mm', 15, data.sampleClassName)
+    // 体检号
+    LODOP.SET_PRINT_STYLE("FontSize", 10);
+    LODOP.ADD_PRINT_TEXT(72, '2mm', '60mm', 25, data.patientNo)
+    // 姓名
+    LODOP.SET_PRINT_STYLE("FontSize", 10);
+    LODOP.ADD_PRINT_TEXT(72, '23mm', '40mm', 25, data.patientName)
+    // 性别
+    LODOP.SET_PRINT_STYLE("FontSize", 10);
+    LODOP.ADD_PRINT_TEXT(72, '35mm', '20mm', 25, data.sex)
+    // 年龄
+    LODOP.SET_PRINT_STYLE("FontSize", 10);
+    LODOP.ADD_PRINT_TEXT(72, '40mm', '20mm', 25, data.age + "岁")
+    // 部门
+    LODOP.SET_PRINT_STYLE("FontSize", 10);
+    LODOP.ADD_PRINT_TEXT(88, '2mm', '40mm', 25, data.department)
+    // 患者类型
+    LODOP.SET_PRINT_STYLE("FontSize", 10);
+    LODOP.ADD_PRINT_TEXT(88, '18mm', '40mm', 25, data.patType)
+    // 横杠
+    LODOP.ADD_PRINT_TEXT(92, '2mm', '80mm', 25, "___________________________________")
+    LODOP.SET_PRINT_STYLE("FontSize", 10);
+    // 项目名称
+    LODOP.ADD_PRINT_TEXT(106, '2mm', '50mm', 30, data.labItemName)
+    LODOP.SET_PRINT_STYLEA(0,"TextNeatRow",true);
+
+  }
 
 
 
@@ -512,20 +526,40 @@ async function buttonAllClick() {
   if (rowSelection.selectedRows.length === 0) {
     createMessage.warning("请选择数据！")
   } else {
+    const ids = ref<Array<String>>([])
     rowSelection.selectedRows.forEach(item => {
       ids.value.push(item.id)
     })
-    // 如果选择的人都是没有患者id的那么就提示
-    if (ids.value.length > 0) {
-      // 弹出表单弹窗
-      setLisApplyModalProps({useWrapper: true});
-      openLisApplyModal(true, {
-        ids: ids.value,
-        type: 'all'
+    // // 如果选择的人都是没有患者id的那么就提示
+    // if (ids.value.length > 0) {
+    //   // 弹出表单弹窗
+    //   setLisApplyModalProps({useWrapper: true});
+    //   openLisApplyModal(true, {
+    //     ids: ids.value,
+    //     type: 'all'
+    //   });
+    // } else {
+    //   createMessage.warning("请选择维护了“患者id”的数据！");
+    // }
+    // 创建对象
+    const param = ref({patType:'5', patIds:ids.value})
+    //提交表单
+    loading.value = true
+    await buttonAll(param.value).then(res => {
+      createConfirm({
+        iconType: 'info',
+        title: '返回结果',
+        content: res,
+        okText: '确认',
+        onOk: function () {
+        },
+        onCancel: function () {
+        },
       });
-    } else {
-      createMessage.warning("请选择维护了“患者id”的数据！");
-    }
+      loading.value = false
+      reload()
+      clearSelectedRowKeys()
+    });
 
   }
 }

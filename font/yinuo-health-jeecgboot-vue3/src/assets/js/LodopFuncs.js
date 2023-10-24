@@ -1,11 +1,20 @@
-﻿//==本JS是加载Lodop插件或Web打印服务CLodop/Lodop7的综合示例，可直接使用，建议理解后融入自己程序==
+﻿
+import { itemList } from '@/views/system/dict/dict.api.ts'
+
+// async function getIp(){
+//   await itemList({dictId:'1716364381721161729'}).then(res =>{
+//     return res.result.records[0].description;
+//   })
+// }
+
+//==本JS是加载Lodop插件或Web打印服务CLodop/Lodop7的综合示例，可直接使用，建议理解后融入自己程序==
 
 //用双端口加载主JS文件Lodop.js(或CLodopfuncs.js兼容老版本)以防其中某端口被占:
 var MainJS ="CLodopfuncs.js",
-    URL_WS1   = "ws://localhost:8000/"+MainJS,                //ws用8000/18000
-    URL_WS2   = "ws://localhost:18000/"+MainJS,
-    URL_HTTP1 = "http://localhost:8000/"+MainJS,              //http用8000/18000
-    URL_HTTP2 = "http://localhost:18000/"+MainJS,
+    URL_WS1   = "ws://192.168.68.124:8000/"+MainJS,                //ws用8000/18000
+    URL_WS2   = "ws://192.168.68.124:18000/"+MainJS,
+    URL_HTTP1 = "http://192.168.68.124:8000/"+MainJS,              //http用8000/18000
+    URL_HTTP2 = "http://192.168.68.124:18000/"+MainJS,
     URL_HTTP3 = "https://localhost.lodop.net:8443/"+MainJS;   //https用8000/8443
 
 var CreatedOKLodopObject, CLodopIsLocal, LoadJsState;
@@ -177,8 +186,10 @@ function getLodop(oOBJECT, oEMBED) {
             }
         }
         //===如下空白位置适合调用统一功能(如注册语句、语言选择等):=======================
-
-
+      // localhost的密钥
+      // LODOP.SET_LICENSES("","EE0887D00FCC7D29375A695F728489A6","C94CEE276DB2187AE6B65D56B3FC2848","");
+        // 192.168.68.2 ip的密钥
+       LODOP.SET_LICENSES("","15F0BE661EA82FC17491843CB303EB11","","");
         //===============================================================================
         return LODOP;
     } catch (err) {

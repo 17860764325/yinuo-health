@@ -675,6 +675,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                     barCodeBuildOne(resultAll, peRegister);
                     break;
                 default:
+                    resultAll.append("成功");
                     break;
             }
         }
@@ -682,7 +683,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
     }
 
 
-    private String calculPersonStep(PeRegisterList peRegister) {
+    private String  calculPersonStep(PeRegisterList peRegister) {
         // 判断有没有维护patId 是否需要人员查询，和创建档案
         if (StrUtil.isEmpty(peRegister.getPatId())) {
             return StaticValue.ONE.getCode();

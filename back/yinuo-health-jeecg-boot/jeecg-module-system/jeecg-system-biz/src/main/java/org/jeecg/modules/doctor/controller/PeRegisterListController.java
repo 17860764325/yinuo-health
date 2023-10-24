@@ -60,7 +60,7 @@ public class PeRegisterListController extends JeecgController<PeRegisterList, IP
         Page<PeRegisterList> page = new Page<PeRegisterList>(pageNo, pageSize);
         // 添加查询条件
         queryWrapper.notLike("patient_name", "%作废%");
-        queryWrapper.eq("status", "3");
+        queryWrapper.ne("status", "4");
         IPage<PeRegisterList> pageList = peRegisterListService.page(page, queryWrapper);
         return Result.OK(pageList);
     }
