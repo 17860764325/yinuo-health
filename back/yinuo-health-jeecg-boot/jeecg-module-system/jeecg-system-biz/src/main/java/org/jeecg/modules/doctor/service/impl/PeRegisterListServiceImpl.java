@@ -94,6 +94,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
     private static final String BAR_CODE_LIST = "barcodeList";
     private static final String REPORT_ID = "reportId";
     private static final String DEPANTPART = "社区门诊";
+    private static final String SUI = "岁";
 
     @Autowired
     private LogUtil logUtil;
@@ -381,7 +382,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
             // 性别
             paramMap.put(SEX, peRegister.getSex());
             // 年龄
-            paramMap.put(PAT_AGE, peRegister.getAge());
+            paramMap.put(PAT_AGE, peRegister.getAge() + SUI);
             // 出生日期
             paramMap.put(BIRTH_DAY, peRegister.getBirthday());
             // 患者类型
