@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8081
   tomcat:
     max-swallow-size: -1
   error:
@@ -135,14 +135,10 @@ spring:
           slow-sql-millis: 5000
       datasource:
         master:
-          url: jdbc:sqlserver://192.168.1.8:1433;SelectMethod=cursor;DatabaseName=HospDataV9
+          url: jdbc:sqlserver://192.168.99.9:1433;SelectMethod=cursor;DatabaseName=HospDataV11
           username: sa
-          password: sasasa123!@#
+          password: sasasa
           driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-#                    url: jdbc:mysql://127.0.0.1:3306/jeecg-boot?characterEncoding=UTF-8&useUnicode=true&useSSL=false&tinyInt1isBit=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
-#                    username: root
-#                    password: liuyinuo1314
-#                    driver-class-name: com.mysql.cj.jdbc.Driver
           # 多数据源配置
           #multi-datasource1:
           #url: jdbc:mysql://localhost:3306/jeecg-boot2?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&transformedBitIsBoolean=true&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
@@ -151,7 +147,7 @@ spring:
           #driver-class-name: com.mysql.cj.jdbc.Driver
   #redis 配置
   redis:
-    database: 0
+    database: 1
     host: 127.0.0.1
     port: 6379
     password: ''
