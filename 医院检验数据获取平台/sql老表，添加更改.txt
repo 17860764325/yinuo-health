@@ -1,0 +1,74 @@
+
+- 直接在 pe_register_list表中添加字段：patId
+    
+    ```sql
+    alter table pe_register_list
+        add pat_id varchar(255)
+    go
+    
+    exec sp_addextendedproperty 'MS_Description', N'众阳系统患者 id', 'SCHEMA', 'dbo', 'TABLE', 'pe_register_list',
+         'COLUMN', 'pat_id'
+    go
+    ```
+    
+    
+- 给`cur_assay_master` 添加条码号字段
+    
+    ```sql
+    alter table cur_assay_master
+        add bar_code varchar(255)
+    go
+    
+    exec sp_addextendedproperty 'MS_Description', N'众阳系统返回的条码号', 'SCHEMA', 'dbo', 'TABLE', 'cur_assay_master',
+         'COLUMN', 'bar_code'
+    go
+    ```
+    
+- 给pe_register_list添加患者类型pat_type 以及状态判断
+    
+    ```sql
+    alter table pe_register_list
+        add pat_type varchar(255)
+    go
+    
+    exec sp_addextendedproperty 'MS_Description', N'患者类型', 'SCHEMA', 'dbo', 'TABLE', 'pe_register_list', 'COLUMN',
+         'pat_type'
+    go
+    
+    alter table pe_register_list
+        add is_lis_apply varchar(255)
+    go
+    
+    exec sp_addextendedproperty 'MS_Description', N'是否已经提交LIS检验申请', 'SCHEMA', 'dbo', 'TABLE', 'pe_register_list',
+         'COLUMN', 'is_lis_apply'
+    go
+    
+    alter table pe_register_list
+        add is_bar_code_build varchar(255)
+    go
+    
+    exec sp_addextendedproperty 'MS_Description', N'是否已经条码生成', 'SCHEMA', 'dbo', 'TABLE', 'pe_register_list',
+         'COLUMN', 'is_bar_code_build'
+    go
+    
+    alter table pe_register_list
+        add is_report varchar(255)
+    go
+    
+    exec sp_addextendedproperty 'MS_Description', N'是否已经查询过报告', 'SCHEMA', 'dbo', 'TABLE', 'pe_register_list',
+           'COLUMN', 'is_report'
+    go
+    -- 添加默认值为“未完成”
+    alter table pe_register_list
+        add default 0 for is_lis_apply
+    go
+    
+    alter table pe_register_list
+        add default 0 for is_bar_code_build
+    go
+    
+    alter table pe_register_list
+        add default 0 for is_report
+    go
+    ```
+    
