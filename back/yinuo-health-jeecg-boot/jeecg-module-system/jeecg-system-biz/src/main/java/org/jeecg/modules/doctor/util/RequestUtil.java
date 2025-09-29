@@ -35,7 +35,7 @@ public class RequestUtil {
     private static final String GET = "get";
 
     private static final String POST = "post";
-    private static final Integer TIMEOUT = 3000;
+    private static final Integer TIMEOUT = 30000;
 
 
     public static String go(String url,String requestType,Map<String, Object> paramsMap) throws Exception{
