@@ -52,6 +52,6 @@ public interface ICheckProjectService extends IService<CheckProject> {
 	 * @date 10/10/23 8:28 PM
 	 * @version 1.0
 	 */
-    Result async();
+    Result async(String labName);
 	
 }

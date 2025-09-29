@@ -137,16 +137,57 @@ export const formSchema: FormSchema[] = [
         label: '请求信息',
         field: 'sendMessage',
         component: 'InputTextArea',
+      componentProps: {
+        //可以点击清除图标删除内容
+        allowClear: true,
+        //是否展示字数
+        showCount: true,
+        //自适应内容高度，可设置为 true | false 或对象：{ minRows: 2, maxRows: 6 }
+        autoSize: {
+          //最小显示行数
+          minRows: 2,
+          //最大显示行数
+          maxRows: 100,
+        },
+      },
     },
     {
         label: '接收信息',
         field: 'receiveMessage',
         component: 'InputTextArea',
+
+      componentProps: {
+        //可以点击清除图标删除内容
+        allowClear: true,
+        //是否展示字数
+        showCount: true,
+        //自适应内容高度，可设置为 true | false 或对象：{ minRows: 2, maxRows: 6 }
+        autoSize: {
+          //最小显示行数
+          minRows: 2,
+          //最大显示行数
+          maxRows: 100,
+        },
+      },
     },
     {
         label: '日志内容',
         field: 'remark',
         component: 'InputTextArea',
+
+      componentProps: {
+        //可以点击清除图标删除内容
+        allowClear: true,
+        //是否展示字数
+        showCount: true,
+        //自适应内容高度，可设置为 true | false 或对象：{ minRows: 2, maxRows: 6 }
+        autoSize: {
+          //最小显示行数
+          minRows: 2,
+          //最大显示行数
+          maxRows: 100,
+        },
+      },
     },
     // TODO 主键隐藏字段，目前写死为ID
     {

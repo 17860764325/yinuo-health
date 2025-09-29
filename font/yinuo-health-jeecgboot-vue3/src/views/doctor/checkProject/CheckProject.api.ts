@@ -81,4 +81,4 @@ export const checkProjectDetailList = (params) =>
  * 检验项目同步的接口
  * @Param null
  */
-export const async = () => defHttp.get({url: Api.async})
+export const async = (params) => defHttp.get({url: Api.async,params})

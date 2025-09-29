@@ -17,6 +17,7 @@
         <a-button type="primary" @click="handleAdd" v-auth="'doctor:check_project:add'"  preIcon="ant-design:plus-outlined"> 新增</a-button>
 <!--        <a-button  type="primary" preIcon="ant-design:export-outlined" @click="onExportXls"> 导出</a-button>-->
 <!--        <j-upload-button  type="primary" preIcon="ant-design:import-outlined" v-auth="'doctor:check_project:import'" @click="onImportXls">导入</j-upload-button>-->
+        可以选择性输入项目名称：<a-input style="width: 200px" v-model:value="labName"></a-input>
         <a-button  type="primary"  v-auth="'doctor:check_project:async'" @click="asyncProject" :icon="h(CloudSyncOutlined)">同步数据</a-button>
 <!--        <a-dropdown v-if="selectedRowKeys.length > 0">-->
 <!--          <template #overlay>-->
@@ -110,7 +111,7 @@ const { createMessage, createErrorModal } = useMessage();
  * 数据同步
  * */
 async function asyncProject(){
-  await async().then((res)=>{
+  await async({labName:labName.value}).then((res)=>{
     console.log(res)
     createMessage.success(res);
     reload()

@@ -277,8 +277,8 @@ public class CheckProjectController {
     @ApiOperation(value = "同步所有的 LIS 的检查项目", notes = "同步所有的 LIS 的检查项目")
     @RequiresPermissions("doctor:check_project:async")
     @RequestMapping(value = "/async", method = RequestMethod.GET)
-    public Result asyncProject() {
-        return checkProjectService.async();
+    public Result asyncProject(@RequestParam(name = "labName")String labName) {
+        return checkProjectService.async(labName);
     }
 
 }

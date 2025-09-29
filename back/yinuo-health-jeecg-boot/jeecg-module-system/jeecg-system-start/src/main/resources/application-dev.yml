@@ -135,9 +135,9 @@ spring:
           slow-sql-millis: 5000
       datasource:
         master:
-          url: jdbc:sqlserver://192.168.99.9:1433;SelectMethod=cursor;DatabaseName=HospDataV11
+          url: jdbc:sqlserver://192.168.68.2:1433;SelectMethod=cursor;DatabaseName=HospDataV9;encrypt=true;trustServerCertificate=true
           username: sa
-          password: sasasa
+          password: sasasa123!@#
           driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
           # 多数据源配置
           #multi-datasource1:

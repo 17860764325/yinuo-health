@@ -11,8 +11,9 @@ export const columns: BasicColumn[] = [
         dataIndex: 'labItemId'
     },
     {
-        title: '接口传输的项目号',
+        title: '组合项目编码后四位',
         align:"center",
+        width:200,
         dataIndex: 'mineProjectNo'
     },
     {

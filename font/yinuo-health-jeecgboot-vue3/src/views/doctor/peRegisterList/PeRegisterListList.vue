@@ -151,6 +151,7 @@ import {Tag, Avatar} from 'ant-design-vue';
 import {usePermission} from "@/hooks/web/usePermission";
 // import {getLodop} from '../../../assets/js/Lodop.js'
 import {  getLodop } from '../../../assets/js/LodopFuncs'
+import {ajaxGetDictItems} from "@/utils/dict";
 
 const {createMessage, createErrorModal, createConfirm} = useMessage();
 
@@ -218,6 +219,8 @@ const personCreateDisabled = ref(false)
 const loading = ref(false)
 // 获取选中人员
 const ids = ref<Array<String>>([])
+// 打印ip
+const ip = ref("127.0.0.1");
 
 
 /**
@@ -412,6 +415,23 @@ async function reportSearchClick() {
   }
 }
 
+
+// 获取字典值
+ajaxGetDictItems("print_ip", null).then((res) => {
+  console.log(res,"获取到的ip字典值")
+  let ip1List = res.filter(item => item.text === "IP1");
+  if (ip1List){
+    ip.value = ip1List[0].value
+    // 获取到数据为：192a168a68a2需要将a替换为英文.
+    if (ip.value){
+      ip.value = ip.value.replaceAll('a', '.');
+    }else {
+      ip.value = "127.0.0.1"
+    }
+  }
+  console.log(ip.value,"最终处理的ip值")
+})
+
 /**
  * 条码打印
  */
@@ -429,7 +449,7 @@ async function barCodePrintClick() {
     if (ids.value.length > 0) {
       await barCodePrintGetData(ids.value).then((res)=>{
         // 定义lodop
-        const LODOP = getLodop();
+        const LODOP = getLodop(ip.value);
         // 获取到后端返回前端数据了
         console.log(res)
         // 直接对res进行操作,循环传输
@@ -664,6 +684,7 @@ function getTableAction(record) {
     }
   ]
 }
+
 
 /**
  * 下拉操作栏
