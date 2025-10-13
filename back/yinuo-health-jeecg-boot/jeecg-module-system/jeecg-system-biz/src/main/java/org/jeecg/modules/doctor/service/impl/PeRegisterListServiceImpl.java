@@ -684,7 +684,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
     }
 
 
-    private String  calculPersonStep(PeRegisterList peRegister) {
+    private String calculPersonStep(PeRegisterList peRegister) {
         // 判断有没有维护patId 是否需要人员查询，和创建档案
         if (StrUtil.isEmpty(peRegister.getPatId())) {
             return StaticValue.ONE.getCode();
@@ -771,10 +771,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
             // 维护报告ID
             for (ReportIdSearchVo datum : response.getData()) {
                 // 根据患者id和条码号更新
-                boolean update = lisApplyBarCodeReportIdService.update(new LambdaUpdateWrapper<LisApplyBarCodeReportId>()
-                        .eq(LisApplyBarCodeReportId::getPatId, datum.getPatId())
-                        .eq(LisApplyBarCodeReportId::getBarCode, datum.getBarCode())
-                        .set(LisApplyBarCodeReportId::getReportId, datum.getReportId()));
+                boolean update = lisApplyBarCodeReportIdService.update(new LambdaUpdateWrapper<LisApplyBarCodeReportId>().eq(LisApplyBarCodeReportId::getPatId, datum.getPatId()).eq(LisApplyBarCodeReportId::getBarCode, datum.getBarCode()).set(LisApplyBarCodeReportId::getReportId, datum.getReportId()));
                 log.log("更新报告id：患者id：" + datum.getPatId() + ",条码号：" + datum.getBarCode() + ",报告id：" + datum.getReportId() + "||");
             }
             // 返回成功信息
@@ -848,9 +845,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
             for (ReportDetailVo datum : response.getData()) {
                 // 首先将每条信息存储在reportDetail表中
                 ReportDetail reportDetail = new ReportDetail();
-                List<ReportDetail> listhaveDone = reportDetailService.list(new LambdaQueryWrapper<ReportDetail>()
-                        .eq(ReportDetail::getReportId, datum.getReportId())
-                        .eq(ReportDetail::getRptDetailId, datum.getRptDetailId()));
+                List<ReportDetail> listhaveDone = reportDetailService.list(new LambdaQueryWrapper<ReportDetail>().eq(ReportDetail::getReportId, datum.getReportId()).eq(ReportDetail::getRptDetailId, datum.getRptDetailId()));
                 if (CollUtil.isNotEmpty(listhaveDone)) {
                     BeanUtil.copyProperties(datum, listhaveDone.get(0));
                     reportDetailService.saveOrUpdate(listhaveDone.get(0));
@@ -920,8 +915,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                     .eq(PeReportDepartmentDetail::getPatientNo, peReportDepartmentDetail.getPatientNo())
                     .eq(PeReportDepartmentDetail::getDepartmentId, peReportDepartmentDetail.getDepartmentId())
                     .eq(PeReportDepartmentDetail::getComposeItemNo, peReportDepartmentDetail.getComposeItemNo())
-                    .eq(PeReportDepartmentDetail::getItemNo, peReportDepartmentDetail.getItemNo())
-            );
+                    .eq(PeReportDepartmentDetail::getItemNo, peReportDepartmentDetail.getItemNo()));
             if (CollUtil.isEmpty(isSave)) {
                 // 新增
                 if (BeanUtil.isEmpty(peReportDepartmentDetail.getNormalDown()) && BeanUtil.isNotEmpty(peReportDepartmentDetail.getNormalUp())) {
@@ -948,6 +942,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
         }
     }
 
+    // 这个是用在获取到接口人员的详细数据后维护到系统上，但是需要查询是否存在这条数据，时候的一个查询条件---科室
     public Integer departmentUtil(String composeItemNo) {
         switch (composeItemNo) {
             case "LNCT1003":
@@ -958,6 +953,8 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                 return 14;
             case "LNCT1025":
                 return 14;
+            case "LNCT1007":
+                return 22;
             default:
                 return 0;
         }
@@ -1010,12 +1007,12 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                 for (Map.Entry<String, List<LisApplyBarCodeReportId>> stringListEntry : collect.entrySet()) {
                     // 项目总和
                     StringBuffer LabItemName = new StringBuffer();
-                    // 保证数据不会覆盖
+                     // 保证数据不会覆盖
                     LisApplyBarCodeReportId newData = new LisApplyBarCodeReportId();
                     // 循环获取项目总和
                     for (LisApplyBarCodeReportId lisApplyBarCodeReportId : stringListEntry.getValue()) {
                         // 如果是最后一个那么就不加 ，
-                        if (lisApplyBarCodeReportId == stringListEntry.getValue().get(stringListEntry.getValue().size()-1)) {
+                        if (lisApplyBarCodeReportId == stringListEntry.getValue().get(stringListEntry.getValue().size() - 1)) {
                             LabItemName.append(lisApplyBarCodeReportId.getLabItemName());
                         } else {
                             LabItemName.append(lisApplyBarCodeReportId.getLabItemName() + ",");
@@ -1024,7 +1021,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                     // 存放数据
                     stringListEntry.getValue().get(0).setLabItemName(LabItemName.toString());
                     // 存放list
-                    BeanUtil.copyProperties(stringListEntry.getValue().get(0),newData);
+                    BeanUtil.copyProperties(stringListEntry.getValue().get(0), newData);
                     filterList.add(newData);
                 }
                 // 循环项目打印是个条码

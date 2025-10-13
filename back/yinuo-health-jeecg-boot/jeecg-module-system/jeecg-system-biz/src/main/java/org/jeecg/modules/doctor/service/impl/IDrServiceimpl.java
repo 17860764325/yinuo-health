@@ -6,6 +6,8 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.jeecg.common.api.vo.Result;
+import org.jeecg.modules.demo.peReportDepartmentImages.entity.PeReportDepartmentImages;
+import org.jeecg.modules.demo.peReportDepartmentImages.service.IPeReportDepartmentImagesService;
 import org.jeecg.modules.doctor.entity.PeRegisterList;
 //import org.jeecg.modules.doctor.entity.PeReportDepartmentImages;
 //import org.jeecg.modules.doctor.service.IPeReportDepartmentImagesService;
@@ -40,8 +42,8 @@ public class IDrServiceimpl implements IDrService {
     private IPeRegisterListService peRegisterListService;
     @Autowired
     private PdfToImageService pdfToImageService;
-//    @Autowired
-//    private IPeReportDepartmentImagesService peReportDepartmentImagesService;
+    @Autowired
+    private IPeReportDepartmentImagesService peReportDepartmentImagesService;
 
 
     @Override
@@ -49,7 +51,7 @@ public class IDrServiceimpl implements IDrService {
     public Result SearchDr(LISApplyInfo lisApplyInfo) {
 
         // 调用接口测试
-        List<PeRegisterList> personList = peRegisterListService.listByIds(lisApplyInfo.getPatIds());
+        List<PeRegisterList> personList = peRegisterListService.list(new LambdaQueryWrapper<PeRegisterList>().in(PeRegisterList::getPatientNo,lisApplyInfo.getPatIds()));
         StringBuffer resMsg = new StringBuffer();
         for (PeRegisterList peRegisterList : personList) {
             resMsg.append(DrSearchFunction(peRegisterList));
@@ -73,7 +75,7 @@ public class IDrServiceimpl implements IDrService {
             if (StrUtil.isNotEmpty(peRegisterList.getPatId())) {
                 patCheckQueryRequest.setPatId(Integer.parseInt(peRegisterList.getPatId()));
             }
-            patCheckQueryRequest.setIdcardNo(peRegisterList.getCardNo());
+            patCheckQueryRequest.setIdcardNo(peRegisterList.getPersonNo());
             patCheckRoot.setRoot(patCheckQueryRequest);
             Map<String, Object> map1 = BeanUtil.beanToMap(patCheckQueryRequest);
             // 请求信息封装
@@ -94,18 +96,17 @@ public class IDrServiceimpl implements IDrService {
                 byteData = pdfToImageService.convertPdfFirstPageToImage(datum.getReportPdfPath());
                 }
             }
-//             byte[] byteData = pdfToImageService.convertPdfFirstPageToImage("https://www.pwithe.com/Public/Upload/download/20170211/589ebf8e5bb13.pdf");
             log.log("返回的pdf转换后的二进制结果" + Arrays.toString(byteData));
             log.success(response.getSuccess());
             // 获取Dr存储表并进行图片存储
-//            List<PeReportDepartmentImages> list = peReportDepartmentImagesService.list(new LambdaQueryWrapper<PeReportDepartmentImages>().eq(PeReportDepartmentImages::getPatientNo, peRegisterList.getPatientNo()));
-//            PeReportDepartmentImages peReportDepartmentImages = new PeReportDepartmentImages();
-//            peReportDepartmentImages.setPatientNo(peRegisterList.getPatientNo());
-//            peReportDepartmentImages.setImageIndex(returnImageIndex(list,10)+1);
-//            peReportDepartmentImages.setImageData(byteData);
-//            peReportDepartmentImages.setDepartmentId(10);
-//            log.log("pat"+peReportDepartmentImages.getPatientNo()+"imgindex"+peReportDepartmentImages.getImageIndex()+"imgdata"+ peReportDepartmentImages.getBaseSixFour());
-//            peReportDepartmentImagesService.save(peReportDepartmentImages);
+            List<PeReportDepartmentImages> list = peReportDepartmentImagesService.list(new LambdaQueryWrapper<PeReportDepartmentImages>().eq(PeReportDepartmentImages::getPatientNo, peRegisterList.getPatientNo()));
+            PeReportDepartmentImages peReportDepartmentImages = new PeReportDepartmentImages();
+            peReportDepartmentImages.setPatientNo(peRegisterList.getPatientNo());
+            peReportDepartmentImages.setImageIndex(returnImageIndex(list,10)+1);
+            peReportDepartmentImages.setImageData(byteData);
+            peReportDepartmentImages.setDepartmentId(10);
+            log.log("pat"+peReportDepartmentImages.getPatientNo()+"imgindex"+peReportDepartmentImages.getImageIndex()+"imgdata"+ peReportDepartmentImages.getBaseSixFour());
+            peReportDepartmentImagesService.save(peReportDepartmentImages);
         } catch (Exception e) {
             log.log("方法报错"+e.getMessage());
             log.success(false);
@@ -116,15 +117,15 @@ public class IDrServiceimpl implements IDrService {
         return res;
     }
 
-//    @Transactional(rollbackFor = Exception.class)
-//    public Integer returnImageIndex(List<PeReportDepartmentImages> list,Integer departmentId){
-//        if (list == null || list.size() == 0) {
-//            return 0;
-//        }
-//        Map<Integer, List<PeReportDepartmentImages>> collect = list.stream().collect(Collectors.groupingBy(PeReportDepartmentImages::getDepartmentId));
-//        List<PeReportDepartmentImages> peReportDepartmentImages = collect.get(departmentId);
-//        return peReportDepartmentImages.size();
-//    }
+    @Transactional(rollbackFor = Exception.class)
+    public Integer returnImageIndex(List<PeReportDepartmentImages> list,Integer departmentId){
+        if (list == null || list.size() == 0) {
+            return 0;
+        }
+        Map<Integer, List<PeReportDepartmentImages>> collect = list.stream().collect(Collectors.groupingBy(PeReportDepartmentImages::getDepartmentId));
+        List<PeReportDepartmentImages> peReportDepartmentImages = collect.get(departmentId);
+        return peReportDepartmentImages.size();
+    }
 
 
 }

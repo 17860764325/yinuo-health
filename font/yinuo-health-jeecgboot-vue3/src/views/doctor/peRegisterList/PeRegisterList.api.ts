@@ -19,6 +19,7 @@ enum Api {
   reportSearch = '/doctor/peRegisterList/reportSearch/',
   buttonAll = '/doctor/peRegisterList/buttonAll',
   barCodePrintGetData = '/doctor/peRegisterList/barCodePrintGetData/',
+  drSearchApiUrl = '/doctor/dr/drSearch',
 }
 /**
  * 导出api
@@ -108,5 +109,9 @@ export const barCodePrintGetData = (ids) => {
 
 export const buttonAll = (params) => {
     return defHttp.post({ url: Api.buttonAll, params });
+};
+
+export const drSearchApi = (params) => {
+  return defHttp.post({ url: Api.drSearchApiUrl, params });
 };
 

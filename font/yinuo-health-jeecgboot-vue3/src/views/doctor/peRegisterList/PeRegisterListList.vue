@@ -36,6 +36,9 @@
                   :disabled="reportSearchDisabled"
                   v-if="!isDisabledAuth('doctor:pe_register_list:reportSearch')"> 报告查询
         </a-button>
+        <a-button type="primary" @click="drSearch" :icon="h(FileSearchOutlined)"
+                  :disabled="reportSearchDisabled"> 查询DR报告
+        </a-button>
 
         <a-dropdown v-if="selectedRowKeys.length > 0">
           <template #overlay>
@@ -134,7 +137,8 @@ import {
   reportSearch,
   buttonAll,
   barCodePrintGetData,
-  newLogTest
+  newLogTest,
+  drSearchApi
 } from './PeRegisterList.api';
 import {downloadFile} from '/@/utils/common/renderUtils';
 import {getAreaTextByCode} from "../../../components/Form/src/utils/Area";
@@ -517,6 +521,34 @@ async function barCodePrintClick() {
 
   }
 
+async function drSearch(){
+  // 获取选择的人员
+  if (rowSelection.selectedRows.length === 0) {
+    createMessage.warning("请选择数据！")
+  } else {
+    const ids = ref<Array<String>>([])
+    rowSelection.selectedRows.forEach(item => {
+      ids.value.push(item.patientNo)
+    })
+    loading.value = true
+    await drSearchApi({patIds:ids.value}).then(res => {
+      createConfirm({
+        iconType: 'info',
+        title: '返回结果',
+        content: res,
+        okText: '确认',
+        onOk: function () {
+          reload()
+        },
+        onCancel: function () {
+          reload()
+        },
+      });
+      loading.value = false
+      clearSelectedRowKeys()
+    })
+  }
+}
 
 
 /**
