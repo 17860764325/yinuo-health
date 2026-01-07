@@ -337,4 +337,9 @@ public class PeRegisterList implements Serializable {
 	@Excel(name = "isReport", width = 15)
     @ApiModelProperty(value = "isReport")
     private String isReport;
+
+        /**DR申请发送到对方系统生成的流水号用来查询 DR 片子*/
+	@Excel(name = "drPatientNo", width = 15)
+    @ApiModelProperty(value = "drPatientNo")
+    private String drPatientNo ;
 }

@@ -58,7 +58,7 @@ public class PatCheckQueryRequest {
     /**
      * 患者ID（关联患者信息唯一标识，非必选）
      */
-    private Integer patId;
+    private String patId;
 
     /**
      * 患者住院ID（非必选）

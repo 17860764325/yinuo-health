@@ -14,6 +14,7 @@ public enum InterfaceInfo {
     OBTAIN_THE_PATIENT_EXAMINATION_INFORMATION("/msun-middle-business-pacs/v1/patients", "获取患者检查信息","post","obtainThePatientExaminationInformation"),
     OBTAIN_INSPECTION_ITEMS("/msun-middle-business-pacs/v1/pacs-applies/items", "获取检查项目","get","obtainInspectionItems"),
     GET_PACS_IMAGE("/msun-middle-business-pacs/v1/pacs-reg-apply-imgs", "报告明细查询","get","getPacsImage"),
+    DR_APPLY("/msun-peis-app-peis-new/v1/save-reg-info", "DR申请发送到公卫","post","drApply"),
     ;
     // url 复制
     private String url;

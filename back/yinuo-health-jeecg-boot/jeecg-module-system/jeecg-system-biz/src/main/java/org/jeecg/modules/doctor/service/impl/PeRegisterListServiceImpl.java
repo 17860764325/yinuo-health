@@ -11,20 +11,24 @@ import net.sf.saxon.om.Item;
 import org.apache.poi.ss.formula.functions.Offset;
 import org.checkerframework.checker.units.qual.A;
 import org.jeecg.common.api.vo.Result;
+import org.jeecg.common.system.vo.DictModel;
 import org.jeecg.common.system.vo.DictQuery;
 import org.jeecg.modules.doctor.entity.*;
 import org.jeecg.modules.doctor.entity.VO.BaseResponseEntity;
+import org.jeecg.modules.doctor.entity.VO.DrApplyResponse;
 import org.jeecg.modules.doctor.mapper.PeRegisterListMapper;
 import org.jeecg.modules.doctor.mapper.PeReportDepartmentDetailMapper;
 import org.jeecg.modules.doctor.service.*;
 import org.jeecg.modules.doctor.util.*;
 import org.jeecg.modules.doctor.vo.*;
+import org.jeecg.modules.system.service.ISysDictService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -122,6 +126,9 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
 
     @Autowired
     private PeReportDepartmentDetailMapper peReportDepartmentDetailMapper;
+
+    @Autowired
+    private ISysDictService sysDictService;
 
 
     /**
@@ -347,12 +354,22 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
         List<PeRegisterList> peRegisters = this.listByIds(lisApplyInfo.getPatIds());
         // 循环操作用户
         for (PeRegisterList peRegister : peRegisters) {
+            // 循环添加用户的时候，添加dr的申请同步申请添加过去！
+            // lis检验申请的接口
             LISApplyOne(lisApplyInfo, resultAll, peRegister);
+            // DR申请的接口
+            DrApply(lisApplyInfo, resultAll, peRegister);
         }
         // 返回信息
         return Result.ok(resultAll.toString());
     }
 
+    /**
+     * @description: LIS检验申请接口
+     * @author lhr
+     * @date 2026/1/3 19:02
+     * @version 1.0
+     */
     private void LISApplyOne(LISApplyInfo lisApplyInfo, StringBuffer resultAll, PeRegisterList peRegister) {
         StringBuffer result = null;
         // 创建日志记录
@@ -489,6 +506,158 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
         // 添加人员返回信息
         resultAll.append(result);
     }
+
+    /**
+     * @param lisApplyInfo : lis申请信息
+     * @param resultAll    : 返回信息
+     * @param peRegister   : 人员信息
+     * @description: DrApply接口申请，每次在LIS申请时候，将Dr申请发送过去
+     * @author lhr
+     * @date 2026/1/3 19:02
+     * @version 1.0
+     */
+    private void DrApply(LISApplyInfo lisApplyInfo, StringBuffer resultAll, PeRegisterList peRegister) {
+        // 获去人员信息，组成请求体，进行发送
+        StringBuffer result = null;
+        // 创建日志记录
+        LogUtilNew log = LogUtilNew.getInstance(InterfaceInfo.DR_APPLY, peRegister);
+        try {
+            ThirdPartRegRequest thirdPartRegRequest = new ThirdPartRegRequest();
+            // 取出字典中的医院id的对应的编码
+            List<DictModel> hospitalIds = sysDictService.getDictItems("hospital_id");
+            // 医院编码
+            thirdPartRegRequest.setHospitalId(Integer.parseInt(hospitalIds.get(0).getValue()));
+            // 身份证号
+            thirdPartRegRequest.setIdCard(peRegister.getPersonNo());
+            // 对方接口就诊卡号--体检号
+            thirdPartRegRequest.setPatCardNo(peRegister.getPatientNo());
+            // 婚姻状态
+            thirdPartRegRequest.setMaritalStatusName("已婚");
+            // 名称
+            thirdPartRegRequest.setName(peRegister.getPatientName());
+            // 民族
+            thirdPartRegRequest.setNationName("汉族");
+            // 年龄
+            thirdPartRegRequest.setPatAge(peRegister.getAge());
+            // 性别
+            thirdPartRegRequest.setSex(peRegister.getSex());
+            // 具体子项目
+            ThirdPartRegRequest.ProjectIdDTO projectIdDTO = new ThirdPartRegRequest.ProjectIdDTO();
+            // 实际价格
+            projectIdDTO.setAcPrice(new BigDecimal(55));
+            // 折扣
+            projectIdDTO.setDisc(new BigDecimal(100));
+            // 医嘱id
+            projectIdDTO.setOrderId("8020206121549432068");
+            // 医嘱名称
+            projectIdDTO.setOrderName("胸部正位拍片（胸部）");
+            // 标准价格
+            projectIdDTO.setStPrice(new BigDecimal(55));
+            List<ThirdPartRegRequest.ProjectIdDTO> projectIdDTOS = new ArrayList<>();
+            projectIdDTOS.add(projectIdDTO);
+            thirdPartRegRequest.setProjectIdList(projectIdDTOS);
+            thirdPartRegRequest.setOrderGreenChannel(1);
+            thirdPartRegRequest.setDepartment("DR");
+            thirdPartRegRequest.setVipFlag(1);
+            thirdPartRegRequest.setCompanyId(0);
+            thirdPartRegRequest.setCompanyGroupId(0);
+
+            Map<String, Object> stringObjectMap = convertToParamMap(thirdPartRegRequest);
+            // 请求信息封装
+            log.setSendMessage(JSONUtil.parse(stringObjectMap).toString());
+            // 发送请求
+            String res = RequestUtil.go(InterfaceInfo.DR_APPLY.getUrl(), InterfaceInfo.DR_APPLY.getRequestType(), stringObjectMap, true);
+            log.setReceiveMessage(res);
+            // 判断
+            if (!JSONUtil.isJson(res)) {
+                throw new RuntimeException("返回信息不是json！");
+            }
+            // 将返回的数据转换成为，接收类数据
+            DrApplyResponse response = JSONUtil.toBean(res, DrApplyResponse.class);
+            // 请求不成功
+            if (!response.getSuccess()) {
+                throw new RuntimeException("DR申请提交失败！");
+            } else {
+                log.success(true);
+                log.log("DR申请提交成功！");
+                resultAll.append("｜DR申请提交成功！");
+                result = log.resultLog("DR申请提交成功！");
+                // 将流水号保存下来,保存的位置
+                // 流水号
+                peRegister.setDrPatientNo(response.getData().getSerialNo());
+                // 数据持久化
+                this.saveOrUpdate(peRegister);
+            }
+        } catch (Exception e) {
+            log.success(false);
+            log.log("报错：" + e.getMessage());
+            result = log.resultLog("报错：" + e.getMessage());
+            resultAll.append("报错：" + e.getMessage());
+        } finally {
+            log.success(true);
+            // 保存日志
+            log.saveLog();
+        }
+    }
+
+    public static Map<String, Object> convertToParamMap(ThirdPartRegRequest dto) {
+        Map<String, Object> paramMap = new HashMap<>();
+
+        // 1. 基础字段映射
+        paramMap.put("cardTypeId", dto.getCardTypeId());
+        paramMap.put("hospitalId", dto.getHospitalId());
+        paramMap.put("idCard", dto.getIdCard());
+        paramMap.put("maritalStatusName", dto.getMaritalStatusName());
+        paramMap.put("name", dto.getName());
+        paramMap.put("nationName", dto.getNationName());
+        paramMap.put("patAddress", dto.getPatAddress());
+        paramMap.put("patAge", dto.getPatAge());
+        paramMap.put("patCardId", dto.getPatCardId());
+        paramMap.put("patCardNo", dto.getPatCardNo());
+        paramMap.put("sex", dto.getSex());
+        paramMap.put("telNo", dto.getTelNo());
+        paramMap.put("orderGreenChannel", dto.getOrderGreenChannel());
+        paramMap.put("birthDate", dto.getBirthDate());
+        paramMap.put("companyId", dto.getCompanyId());
+        paramMap.put("companyGroupId", dto.getCompanyGroupId());
+        paramMap.put("companyRecordId", dto.getCompanyRecordId());
+        paramMap.put("companyGroupRecordId", dto.getCompanyGroupRecordId());
+        paramMap.put("department", dto.getDepartment());
+        paramMap.put("vipFlag", dto.getVipFlag());
+
+        // 2. 嵌套列表（projectIdList）转换
+        List<Map<String, Object>> projectListMap = new ArrayList<>();
+        if (dto.getProjectIdList() != null && !dto.getProjectIdList().isEmpty()) {
+            for (ThirdPartRegRequest.ProjectIdDTO project : dto.getProjectIdList()) {
+                Map<String, Object> projectMap = new HashMap<>();
+                projectMap.put("acPrice", project.getAcPrice());
+                projectMap.put("addLaterFlag", project.getAddLaterFlag());
+                projectMap.put("catagoryId", project.getCatagoryId());
+                projectMap.put("catagoryName", project.getCatagoryName());
+                projectMap.put("deptId", project.getDeptId());
+                projectMap.put("deptName", project.getDeptName());
+                projectMap.put("dictPackageId", project.getDictPackageId());
+                projectMap.put("disc", project.getDisc());
+                projectMap.put("dose", project.getDose());
+                projectMap.put("doseUnit", project.getDoseUnit());
+                projectMap.put("orderId", project.getOrderId());
+                projectMap.put("orderName", project.getOrderName());
+                projectMap.put("orderProp", project.getOrderProp());
+                projectMap.put("packageName", project.getPackageName());
+                projectMap.put("quantity", project.getQuantity());
+                projectMap.put("quantityUnit", project.getQuantityUnit());
+                projectMap.put("spec", project.getSpec());
+                projectMap.put("stPrice", project.getStPrice());
+                projectMap.put("ycId", project.getYcId());
+                projectMap.put("ycName", project.getYcName());
+                projectListMap.add(projectMap);
+            }
+        }
+        paramMap.put("projectIdList", projectListMap);
+
+        return paramMap;
+    }
+
 
     /**
      * @description: 条码生成
@@ -662,12 +831,14 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                     }
                     // 生成LIS检验申请
                     LISApplyOne(lisApplyInfo, resultAll, peRegister);
+                    DrApply(lisApplyInfo, resultAll, peRegister);
                     // 生成条码
                     barCodeBuildOne(resultAll, peRegister);
                     break;
                 case "2":
                     // 生成LIS检验申请
                     LISApplyOne(lisApplyInfo, resultAll, peRegister);
+                    DrApply(lisApplyInfo, resultAll, peRegister);
                     // 生成条码
                     barCodeBuildOne(resultAll, peRegister);
                     break;
@@ -911,11 +1082,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
     private void saveOrUpdateDataList(List<PeReportDepartmentDetail> peReportDepartmentDetails) throws Exception {
         // 维护人员状态，报告查询维护：已完成,手动sql
         for (PeReportDepartmentDetail peReportDepartmentDetail : peReportDepartmentDetails) {
-            List<PeReportDepartmentDetail> isSave = peReportDepartmentDetailService.list(new LambdaQueryWrapper<PeReportDepartmentDetail>()
-                    .eq(PeReportDepartmentDetail::getPatientNo, peReportDepartmentDetail.getPatientNo())
-                    .eq(PeReportDepartmentDetail::getDepartmentId, peReportDepartmentDetail.getDepartmentId())
-                    .eq(PeReportDepartmentDetail::getComposeItemNo, peReportDepartmentDetail.getComposeItemNo())
-                    .eq(PeReportDepartmentDetail::getItemNo, peReportDepartmentDetail.getItemNo()));
+            List<PeReportDepartmentDetail> isSave = peReportDepartmentDetailService.list(new LambdaQueryWrapper<PeReportDepartmentDetail>().eq(PeReportDepartmentDetail::getPatientNo, peReportDepartmentDetail.getPatientNo()).eq(PeReportDepartmentDetail::getDepartmentId, peReportDepartmentDetail.getDepartmentId()).eq(PeReportDepartmentDetail::getComposeItemNo, peReportDepartmentDetail.getComposeItemNo()).eq(PeReportDepartmentDetail::getItemNo, peReportDepartmentDetail.getItemNo()));
             if (CollUtil.isEmpty(isSave)) {
                 // 新增
                 if (BeanUtil.isEmpty(peReportDepartmentDetail.getNormalDown()) && BeanUtil.isNotEmpty(peReportDepartmentDetail.getNormalUp())) {
@@ -995,66 +1162,95 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                 // 创建返回信息
                 List<BarCodePerintVo> resultList = new ArrayList<>();
                 log.log("查询到的人员信息：" + JSONUtil.parse(peRegister).toString());
+                if (StrUtil.isNotEmpty(peRegister.getDrPatientNo())) {
+                    // 添加特殊的DR的特殊条码信息
+                    BarCodePerintVo DrBarSpacel = new BarCodePerintVo();
+                    // 体检号
+                    DrBarSpacel.setPatientNo(peRegister.getPatientNo());
+                    // 姓名
+                    DrBarSpacel.setPatientName(peRegister.getPatientName());
+                    // 性别
+                    DrBarSpacel.setSex(peRegister.getSex());
+                    // 年龄
+                    DrBarSpacel.setAge(peRegister.getAge().toString());
+                    // 患者类型
+                    DrBarSpacel.setPatType(patTypeGetName(peRegister.getPatType()));
+                    // 条码号
+                    DrBarSpacel.setBarCode(peRegister.getDrPatientNo());
+                    // 试管颜色
+                    DrBarSpacel.setTubeColor("---");
+                    // 项目编码
+                    DrBarSpacel.setLabItemName("DR");
+                    // 项目名称
+                    DrBarSpacel.setLabItemNo("胸部正位");
+                    // 科室
+                    DrBarSpacel.setDepartment("放射科");
+                    // 样本类型名称
+                    DrBarSpacel.setSampleClassName("胸部正位拍片（胸部）");
+                    resultList.add(DrBarSpacel);
+                }
                 // 查询该人的项目信息
                 List<LisApplyBarCodeReportId> peojectList = lisApplyBarCodeReportIdService.list(new LambdaQueryWrapper<LisApplyBarCodeReportId>().eq(LisApplyBarCodeReportId::getPatientNo, peRegister.getPatientNo()));
-                log.log("人员的项目信息:" + JSONUtil.parse(peojectList).toString());
-                // 需要将条码号重复的项目名称合并
-                // 根据条码号分组
-                Map<String, List<LisApplyBarCodeReportId>> collect = peojectList.stream().collect(Collectors.groupingBy(LisApplyBarCodeReportId::getBarCode));
-                // 创建筛选后的list
-                List<LisApplyBarCodeReportId> filterList = new ArrayList<>();
-                // 循环获取值
-                for (Map.Entry<String, List<LisApplyBarCodeReportId>> stringListEntry : collect.entrySet()) {
-                    // 项目总和
-                    StringBuffer LabItemName = new StringBuffer();
-                     // 保证数据不会覆盖
-                    LisApplyBarCodeReportId newData = new LisApplyBarCodeReportId();
-                    // 循环获取项目总和
-                    for (LisApplyBarCodeReportId lisApplyBarCodeReportId : stringListEntry.getValue()) {
-                        // 如果是最后一个那么就不加 ，
-                        if (lisApplyBarCodeReportId == stringListEntry.getValue().get(stringListEntry.getValue().size() - 1)) {
-                            LabItemName.append(lisApplyBarCodeReportId.getLabItemName());
-                        } else {
-                            LabItemName.append(lisApplyBarCodeReportId.getLabItemName() + ",");
+                if (CollUtil.isNotEmpty(peojectList)) {
+                    log.log("人员的项目信息:" + JSONUtil.parse(peojectList).toString());
+                    // 需要将条码号重复的项目名称合并
+                    // 根据条码号分组
+                    Map<String, List<LisApplyBarCodeReportId>> collect = peojectList.stream().collect(Collectors.groupingBy(LisApplyBarCodeReportId::getBarCode));
+                    // 创建筛选后的list
+                    List<LisApplyBarCodeReportId> filterList = new ArrayList<>();
+                    // 循环获取值
+                    for (Map.Entry<String, List<LisApplyBarCodeReportId>> stringListEntry : collect.entrySet()) {
+                        // 项目总和
+                        StringBuffer LabItemName = new StringBuffer();
+                        // 保证数据不会覆盖
+                        LisApplyBarCodeReportId newData = new LisApplyBarCodeReportId();
+                        // 循环获取项目总和
+                        for (LisApplyBarCodeReportId lisApplyBarCodeReportId : stringListEntry.getValue()) {
+                            // 如果是最后一个那么就不加 ，
+                            if (lisApplyBarCodeReportId == stringListEntry.getValue().get(stringListEntry.getValue().size() - 1)) {
+                                LabItemName.append(lisApplyBarCodeReportId.getLabItemName());
+                            } else {
+                                LabItemName.append(lisApplyBarCodeReportId.getLabItemName() + ",");
+                            }
                         }
+                        // 存放数据
+                        stringListEntry.getValue().get(0).setLabItemName(LabItemName.toString());
+                        // 存放list
+                        BeanUtil.copyProperties(stringListEntry.getValue().get(0), newData);
+                        filterList.add(newData);
                     }
-                    // 存放数据
-                    stringListEntry.getValue().get(0).setLabItemName(LabItemName.toString());
-                    // 存放list
-                    BeanUtil.copyProperties(stringListEntry.getValue().get(0), newData);
-                    filterList.add(newData);
-                }
-                // 循环项目打印是个条码
-                for (LisApplyBarCodeReportId lisApplyBarCodeReportId : filterList) {
-                    // 创建条码类
-                    BarCodePerintVo barCodePerintVo = new BarCodePerintVo();
-                    // 根据传输进来的体检号查询人员信息，拼凑条码打印的信息，主要是两张表 lis。。。。,和 checkProject这两个
-                    // 体检号
-                    barCodePerintVo.setPatientNo(peRegister.getPatientNo());
-                    // 姓名
-                    barCodePerintVo.setPatientName(peRegister.getPatientName());
-                    // 性别
-                    barCodePerintVo.setSex(peRegister.getSex());
-                    // 年龄
-                    barCodePerintVo.setAge(peRegister.getAge().toString());
-                    // 患者类型
-                    barCodePerintVo.setPatType(patTypeGetName(peRegister.getPatType()));
-                    // 条码号
-                    barCodePerintVo.setBarCode(lisApplyBarCodeReportId.getBarCode());
-                    // 试管颜色
-                    barCodePerintVo.setTubeColor(lisApplyBarCodeReportId.getRemark());
-                    // 项目编码
-                    barCodePerintVo.setLabItemName(lisApplyBarCodeReportId.getLabItemName());
-                    // 项目名称
-                    barCodePerintVo.setLabItemNo(lisApplyBarCodeReportId.getLabItemId());
-                    // 科室
-                    barCodePerintVo.setDepartment(DEPANTPART);
-                    // 样本类型名称
-                    // 查询对应项目
-                    CheckProject project = checkProjectService.getOne(new LambdaQueryWrapper<CheckProject>().eq(CheckProject::getLabItemId, lisApplyBarCodeReportId.getLabItemId()));
-                    barCodePerintVo.setSampleClassName(project.getSampleClassName());
-                    // 添加到结果集
-                    resultList.add(barCodePerintVo);
+                    // 循环项目打印是个条码
+                    for (LisApplyBarCodeReportId lisApplyBarCodeReportId : filterList) {
+                        // 创建条码类
+                        BarCodePerintVo barCodePerintVo = new BarCodePerintVo();
+                        // 根据传输进来的体检号查询人员信息，拼凑条码打印的信息，主要是两张表 lis。。。。,和 checkProject这两个
+                        // 体检号
+                        barCodePerintVo.setPatientNo(peRegister.getPatientNo());
+                        // 姓名
+                        barCodePerintVo.setPatientName(peRegister.getPatientName());
+                        // 性别
+                        barCodePerintVo.setSex(peRegister.getSex());
+                        // 年龄
+                        barCodePerintVo.setAge(peRegister.getAge().toString());
+                        // 患者类型
+                        barCodePerintVo.setPatType(patTypeGetName(peRegister.getPatType()));
+                        // 条码号
+                        barCodePerintVo.setBarCode(lisApplyBarCodeReportId.getBarCode());
+                        // 试管颜色
+                        barCodePerintVo.setTubeColor(lisApplyBarCodeReportId.getRemark());
+                        // 项目编码
+                        barCodePerintVo.setLabItemName(lisApplyBarCodeReportId.getLabItemName());
+                        // 项目名称
+                        barCodePerintVo.setLabItemNo(lisApplyBarCodeReportId.getLabItemId());
+                        // 科室
+                        barCodePerintVo.setDepartment(DEPANTPART);
+                        // 样本类型名称
+                        // 查询对应项目
+                        CheckProject project = checkProjectService.getOne(new LambdaQueryWrapper<CheckProject>().eq(CheckProject::getLabItemId, lisApplyBarCodeReportId.getLabItemId()));
+                        barCodePerintVo.setSampleClassName(project.getSampleClassName());
+                        // 添加到结果集
+                        resultList.add(barCodePerintVo);
+                    }
                 }
                 resultAll.add(resultList);
                 log.success(true);

@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson.JSON;
+import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
 import cn.hutool.http.HttpRequest;
@@ -38,12 +39,34 @@ public class RequestUtil {
     private static final Integer TIMEOUT = 30000;
 
 
+    /**
+     * @description: 请求方法，url 请求方式，参数
+     * @author lhr
+     * @date 2026/1/7 12:25
+     * @version 1.0
+     */
     public static String go(String url,String requestType,Map<String, Object> paramsMap) throws Exception{
         String message = "";
         if (requestType.equals(GET)){
-            message = get(IP + url,paramsMap);
+            message = get(IP + url,paramsMap,false);
         }else {
-            message = post(IP + url,paramsMap);
+            message = post(IP + url,paramsMap,false);
+        }
+        return message;
+    }
+
+    /**
+     * @description: 重写方法 最后添加了一个是否需要登录用户
+     * @author lhr
+     * @date 2026/1/7 12:27
+     * @version 1.0
+     */
+     public static String go(String url,String requestType,Map<String, Object> paramsMap,boolean needLoginUser) throws Exception{
+        String message = "";
+        if (requestType.equals(GET)){
+            message = get(IP + url,paramsMap,needLoginUser);
+        }else {
+            message = post(IP + url,paramsMap,needLoginUser);
         }
         return message;
     }
@@ -56,7 +79,7 @@ public class RequestUtil {
      * @return
      * @throws Exception
      */
-    public static String post(String url, Map<String, Object> paramsMap) throws Exception {
+    public static String post(String url, Map<String, Object> paramsMap,boolean needLoginUser) throws Exception {
         // 参数不为空，转换成标准JSON字符串
         String paramsJsonStr = "";
         if (CollectionUtil.isNotEmpty(paramsMap)) {
@@ -78,7 +101,7 @@ public class RequestUtil {
         String sign = getSign(md5Str, APP_SECRET);
 
         // 构建请求头
-        Map<String, String> headers = builderHeaders(sign, timestamp);
+        Map<String, String> headers = builderHeaders(sign, timestamp,needLoginUser);
 
         // 构建请求，可以用RestTemplate、HttpClient、  WebFlux等工具类，具体看自身项目工具类使用，不做限制
         HttpRequest postHttpReq = HttpUtil.createPost(url);
@@ -102,7 +125,7 @@ public class RequestUtil {
      * @param paramsMap 请求参数，可以为空
      * @return
      */
-    public static String get(String url, Map<String, Object> paramsMap) throws Exception {
+    public static String get(String url, Map<String, Object> paramsMap,boolean needLoginUser) throws Exception {
         // 请求参数不为空，按照ASCII码自然排序
         Map<String, Object> getParamsMap = new TreeMap<>(Comparator.naturalOrder());
         if (CollectionUtil.isNotEmpty(paramsMap)) {
@@ -132,7 +155,7 @@ public class RequestUtil {
         String sign = getSign(signatureStr, APP_SECRET);
 
         // 构建请求头
-        Map<String, String> headers = builderHeaders(sign, timestamp);
+        Map<String, String> headers = builderHeaders(sign, timestamp,needLoginUser);
 
         // 有请求参数，拼接到地址栏，比  如 https://openapi.msunhis.com/msun-his-app-emr-openapi/v1/list?a=1&c=3&b=2
         if (StrUtil.isNotBlank(sortedParamsStr)) {
@@ -188,7 +211,7 @@ public class RequestUtil {
      * @param timestamp
      * @return
      */
-    public static Map<String, String> builderHeaders(String sign, long timestamp) {
+    public static Map<String, String> builderHeaders(String sign, long timestamp,boolean needLoginUser) {
         Map<String, String> headersMap = new HashMap<>();
         headersMap.put("appId", APP_ID);
         headersMap.put("signType", "RSA2");
@@ -196,6 +219,27 @@ public class RequestUtil {
         headersMap.put("hospitalId", "10353001");
         headersMap.put("sign", sign);
         headersMap.put("timestamp", timestamp + "");
+         if (needLoginUser) {
+             LoginUser loginUser = new LoginUser();
+             // // 核心：数字后加 L 表示 long 类型（大小写均可，推荐大写 L，避免和数字 1 混淆）
+             loginUser.setUserSysId(8489752841619637124L);
+             loginUser.setUserId(8489750806610317061L);
+             loginUser.setUserName("社区体检");
+             loginUser.setHospitalId(10353001L);
+             loginUser.setHospitalName("潍坊市第二人民医院");
+             loginUser.setOrgId(10353L);
+             loginUser.setDeptCode("gwsq");
+             loginUser.setDeptId(7035099002056605704L);
+             loginUser.setDeptName("广文社区");
+             loginUser.setMainDeptId(7035099002056605704L);
+             loginUser.setMainDeptName("广文社区");
+            // 将loginUser转换为JSON字符串
+            String loginUserJson = JSON.toJSONString(loginUser);
+            // 将JSON字符串转换为Base64编码
+            String loginUserBase64 = Base64.encodeBase64String(loginUserJson.getBytes(StandardCharsets.UTF_8));
+            // 放入参数中
+            headersMap.put("loginUser", loginUserBase64);
+        }
         return headersMap;
     }
 }
