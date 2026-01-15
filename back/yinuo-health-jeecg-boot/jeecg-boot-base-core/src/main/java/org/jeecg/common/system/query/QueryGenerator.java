@@ -242,9 +242,12 @@ public class QueryGenerator {
 
 		//update-begin-author:scott date:2022-11-07 for:避免用户自定义表无默认字段{创建时间}，导致排序报错
 		//TODO 避免用户自定义表无默认字段创建时间，导致排序报错
-		if(DataBaseConstant.CREATE_TIME.equals(column) && !fieldColumnMap.containsKey(DataBaseConstant.CREATE_TIME)){
+		if(DataBaseConstant.CREATE_TIME.equals(column) && !fieldColumnMap.containsKey(DataBaseConstant.CREATE_TIME) && fieldColumnMap.containsKey("id")){
 			column = "id";
 			log.warn("检测到实体里没有字段createTime，改成采用ID排序！");
+		}else if (DataBaseConstant.CREATE_TIME.equals(column) && !fieldColumnMap.containsKey(DataBaseConstant.CREATE_TIME) && !fieldColumnMap.containsKey("id")){
+			column = "recipeListId";
+			log.warn("检测到实体里没有字段ID，改成采用recipeListId排序！");
 		}
 		//update-end-author:scott date:2022-11-07 for:避免用户自定义表无默认字段{创建时间}，导致排序报错
 		

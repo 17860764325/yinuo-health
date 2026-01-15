@@ -15,6 +15,7 @@ public enum InterfaceInfo {
     OBTAIN_INSPECTION_ITEMS("/msun-middle-business-pacs/v1/pacs-applies/items", "获取检查项目","get","obtainInspectionItems"),
     GET_PACS_IMAGE("/msun-middle-business-pacs/v1/pacs-reg-apply-imgs", "报告明细查询","get","getPacsImage"),
     DR_APPLY("/msun-peis-app-peis-new/v1/save-reg-info", "DR申请发送到公卫","post","drApply"),
+    DHY_PRESCRIPTION_SERVICE("http://111.204.86.202:7012/api/PreScription/dhyPrescriptionService", "东华原处方传入接口","post","dhyPrescriptionService"),
     ;
     // url 复制
     private String url;

@@ -78,11 +78,11 @@ public class IDrServiceimpl implements IDrService {
             // 过滤标识
             patCheckQueryRequest.setFilterPrintFlag(0);
             // 患者号
-//            if (StrUtil.isNotEmpty(peRegisterList.getPatId())) {
-//                patCheckQueryRequest.setPatId(peRegisterList.getPatId());
-//            }
-            // 身份证号
-//            patCheckQueryRequest.setIdcardNo(peRegisterList.getPersonNo());
+            if (StrUtil.isNotEmpty(peRegisterList.getPatId())) {
+                patCheckQueryRequest.setPatId(peRegisterList.getPatId());
+            }
+//             身份证号
+            patCheckQueryRequest.setIdcardNo(peRegisterList.getPersonNo());
             // 流水号
             patCheckQueryRequest.setPatientId(peRegisterList.getDrPatientNo());
             patCheckRoot.setRoot(patCheckQueryRequest);
