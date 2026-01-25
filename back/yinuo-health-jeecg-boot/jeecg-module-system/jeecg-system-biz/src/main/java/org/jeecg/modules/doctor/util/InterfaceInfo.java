@@ -11,10 +11,13 @@ public enum InterfaceInfo {
     REPORT_DETAIL_SEARCH("/msun-middle-business-lis/v1/lis-reports/details", "报告明细查询","get","reportDetailSearch"),
     BAR_CODE_PRINT("", "条码打印","","barCodePrint"),
     LOG_TEST("log_test", "日志测试","post","log_test"),
-    OBTAIN_THE_PATIENT_EXAMINATION_INFORMATION("/msun-middle-business-pacs/v1/patients", "获取患者检查信息","post","obtainThePatientExaminationInformation"),
+    OBTAIN_THE_PATIENT_EXAMINATION_INFORMATION("/msun-middle-business-pacs/v1/patients", "DR获取患者检查信息","post","obtainThePatientExaminationInformation"),
+    OBTAIN_THE_PATIENT_DR("/msun-middle-business-pacs/v1/pacs-reports", "获取患者DR检查信息","get","obtainThePatientExaminationInformation"),
     OBTAIN_INSPECTION_ITEMS("/msun-middle-business-pacs/v1/pacs-applies/items", "获取检查项目","get","obtainInspectionItems"),
     GET_PACS_IMAGE("/msun-middle-business-pacs/v1/pacs-reg-apply-imgs", "报告明细查询","get","getPacsImage"),
     DR_APPLY("/msun-peis-app-peis-new/v1/save-reg-info", "DR申请发送到公卫","post","drApply"),
+    DR_APPLY_NEW("/msun-middle-business-pacs/v1/pacs-applies", "DR申请发送到公卫","post","drApply"),
+    DR_NEW_APPLY("/msun-peis-app-peis-new/v1/save-reg-info", "DR申请发送到公卫-新","post","drNewApply"),
     DHY_PRESCRIPTION_SERVICE("http://111.204.86.202:7012/api/PreScription/dhyPrescriptionService", "东华原处方传入接口","post","dhyPrescriptionService"),
     ;
     // url 复制

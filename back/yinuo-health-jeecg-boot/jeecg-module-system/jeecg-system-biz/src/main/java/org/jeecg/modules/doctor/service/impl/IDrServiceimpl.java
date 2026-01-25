@@ -7,6 +7,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.jeecg.common.api.vo.Result;
+import org.jeecg.common.system.vo.DictModel;
 import org.jeecg.modules.demo.peReportDepartmentImages.entity.PeReportDepartmentImages;
 import org.jeecg.modules.demo.peReportDepartmentImages.service.IPeReportDepartmentImagesService;
 import org.jeecg.modules.doctor.entity.*;
@@ -21,13 +22,12 @@ import org.jeecg.modules.doctor.util.LogUtilNew;
 import org.jeecg.modules.doctor.util.PdfToImageService;
 import org.jeecg.modules.doctor.util.RequestUtil;
 import org.jeecg.modules.doctor.vo.LISApplyInfo;
+import org.jeecg.modules.system.service.ISysDictService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -45,6 +45,8 @@ public class IDrServiceimpl implements IDrService {
     private IPeReportDepartmentImagesService peReportDepartmentImagesService;
     @Autowired
     private IPeReportDepartmentDetailService peReportDepartmentDetailService;
+    @Autowired
+    private ISysDictService sysDictService;
 
 
     @Override
@@ -62,34 +64,22 @@ public class IDrServiceimpl implements IDrService {
     @Transactional(rollbackFor = Exception.class)
     public String DrSearchFunction(PeRegisterList peRegisterList) {
         // 记录接口请求日志
-        LogUtilNew log = LogUtilNew.getInstance(InterfaceInfo.OBTAIN_THE_PATIENT_EXAMINATION_INFORMATION, peRegisterList);
+        LogUtilNew log = LogUtilNew.getInstance(InterfaceInfo.OBTAIN_THE_PATIENT_DR, peRegisterList);
         // log是否成功标志
         boolean flag = true;
         String res = "";
         try {
             List<PeReportDepartmentDetail> list1 = peReportDepartmentDetailService.list(new LambdaQueryWrapper<PeReportDepartmentDetail>().eq(PeReportDepartmentDetail::getPatientNo, peRegisterList.getPatientNo()));
             List<PeReportDepartmentDetail> collect = list1.stream().filter(item -> item.getItemNo().equals("LNCT8200") || item.getItemNo().equals("LNCT8200B")).collect(Collectors.toList());
-            PatCheckRoot patCheckRoot = new PatCheckRoot();
-            PatCheckQueryRequest patCheckQueryRequest = new PatCheckQueryRequest();
-            // 开始时间
-            patCheckQueryRequest.setStartDate(DateUtil.format(peRegisterList.getPeDate(), "yyyy-MM-dd HH:mm:ss"));
-            // 结束时间
-            patCheckQueryRequest.setEndDate(DateUtil.format(DateUtil.offsetDay(peRegisterList.getPeDate(), 7), "yyyy-MM-dd HH:mm:ss"));
-            // 过滤标识
-            patCheckQueryRequest.setFilterPrintFlag(0);
-            // 患者号
-            if (StrUtil.isNotEmpty(peRegisterList.getPatId())) {
-                patCheckQueryRequest.setPatId(peRegisterList.getPatId());
-            }
-//             身份证号
-            patCheckQueryRequest.setIdcardNo(peRegisterList.getPersonNo());
-            // 流水号
-            patCheckQueryRequest.setPatientId(peRegisterList.getDrPatientNo());
-            patCheckRoot.setRoot(patCheckQueryRequest);
-            Map<String, Object> map1 = BeanUtil.beanToMap(patCheckQueryRequest);
+            Map<String, Object> map1 = new HashMap<>();
+            // 取出字典中的医院id的对应的编码
+            List<DictModel> hospitalIds = sysDictService.getDictItems("hospital_id");
+            // 医院编码
+            map1.put("hospitalId", hospitalIds.get(0).getValue());
+            map1.put("applyNo", peRegisterList.getDrPatientNo());
             // 请求信息封装
             log.setSendMessage(JSONUtil.parse(map1).toString());
-            res = RequestUtil.go(InterfaceInfo.OBTAIN_THE_PATIENT_EXAMINATION_INFORMATION.getUrl(), InterfaceInfo.OBTAIN_THE_PATIENT_EXAMINATION_INFORMATION.getRequestType(), map1);
+            res = RequestUtil.go(InterfaceInfo.OBTAIN_THE_PATIENT_DR.getUrl(), InterfaceInfo.OBTAIN_THE_PATIENT_DR.getRequestType(), map1);
             // 返回信息封装
             log.setReceiveMessage(res);
             System.err.print(res);
@@ -100,34 +90,15 @@ public class IDrServiceimpl implements IDrService {
             }
             System.err.print("即将要转换为bean");
             // 将返回的数据转换成为，接收类数据
-            PatCheckResponse response = JSONUtil.toBean(res, PatCheckResponse.class);
+            PacsResponseDr response = JSONUtil.toBean(res, PacsResponseDr.class);
             System.err.print("已经转换为转换为bean");
             log.log("返回数据映射到实体类后" + JSONUtil.toJsonStr(response));
             byte[] byteData = null;
             System.err.print("血循环早符合逻辑dr");
             System.err.print("获取的data数据" + response.getData());
-            for (PatientCheckVO datum : response.getData()) {
-                // 获取三个时间字符串
-                String reportSubmitTime = datum.getReportSubmitTime();
-                String startDate = patCheckQueryRequest.getStartDate();
-                String endDate = patCheckQueryRequest.getEndDate();
-                if (datum.getStuEquipmentName().contains("DR")) {
-                    // 将conclusion -- LNCT8200和finding --- LNCT8200B
-                    if (CollUtil.isNotEmpty(collect)) {
-                        for (PeReportDepartmentDetail peReportDepartmentDetail : collect) {
-                            if (peReportDepartmentDetail.getItemNo().equals("LNCT8200")) {
-                                peReportDepartmentDetail.setPeResult(datum.getConclusion());
-                            } else {
-                                peReportDepartmentDetail.setPeResult(datum.getFinding());
-                            }
-                        }
-                    }
-                    // 图片维护
-                    if (StrUtil.isNotEmpty(datum.getReportPdfPath())) {
-                        byteData = pdfToImageService.convertPdfFirstPageToImage(datum.getReportPdfPath());
-                    }
-
-                }
+            List<PacsReportDetailDTO> resposeDetail = new ArrayList<>();
+            if (CollUtil.isNotEmpty(resposeDetail)) {
+                byteData = pdfToImageService.convertPdfFirstPageToImage(resposeDetail.get(0).getReportPdfPath());
             }
             log.log("返回的pdf转换后的二进制结果" + Arrays.toString(byteData));
             log.success(response.getSuccess());
@@ -145,13 +116,19 @@ public class IDrServiceimpl implements IDrService {
             log.log("pat" + peReportDepartmentImages.getPatientNo() + "imgindex" + peReportDepartmentImages.getImageIndex() + "imgdata" + peReportDepartmentImages.getBaseSixFour());
             peReportDepartmentImagesService.saveOrUpdate(peReportDepartmentImages);
             for (PeReportDepartmentDetail peReportDepartmentDetail : collect) {
+                if (peReportDepartmentDetail.getItemNo().equals("LNCT8200")) {
+                    // 结论
+                    peReportDepartmentDetail.setPeResult(resposeDetail.get(0).getConclusion());
+                } else {
+                    // 描述
+                    peReportDepartmentDetail.setPeResult(resposeDetail.get(0).getFinding());
+                }
                 // 正确写法：update(实体对象, 查询条件Wrapper)
                 peReportDepartmentDetailService.update(peReportDepartmentDetail, // 要更新的实体（设置需要修改的字段值）
                         new LambdaQueryWrapper<PeReportDepartmentDetail>().eq(PeReportDepartmentDetail::getPatientNo, peRegisterList.getPatientNo()) // 第一个唯一标识字段
                                 .eq(PeReportDepartmentDetail::getItemNo, peReportDepartmentDetail.getItemNo()) // 第二个唯一标识字段
                 );
             }
-
         } catch (Exception e) {
             log.log("方法报错" + e.getMessage());
             log.success(false);

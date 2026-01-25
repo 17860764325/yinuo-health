@@ -130,6 +130,9 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
     @Autowired
     private ISysDictService sysDictService;
 
+    @Autowired
+    private IAccUsersService accUsersService;
+
 
     /**
      * @description: 人员档案查询
@@ -193,6 +196,8 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                     if (BeanUtil.isNotEmpty(personSearchResponse.getData()) && StrUtil.isNotEmpty(personSearchResponse.getData().getPatId())) {
                         // 获取请求数据的 患者 id 字段，维护到 pe_regiter_list 表格中
                         peRegister.setPatId(personSearchResponse.getData().getPatId());
+                        // 将cardNo字段维护到 pe_regiter_list 表格中
+                        peRegister.setCardNo(personSearchResponse.getData().getCardNo());
                         // 书写返回信息
                         logUtil.logMessage(resultMessage, peRegister, logMessage, "获取 患者id(" + personSearchResponse.getData().getPatId() + ") 成功！");
                         // 将更新的数据进行持久化
@@ -520,60 +525,47 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
         // 获去人员信息，组成请求体，进行发送
         StringBuffer result = null;
         // 创建日志记录
-        LogUtilNew log = LogUtilNew.getInstance(InterfaceInfo.DR_APPLY, peRegister);
+        LogUtilNew log = LogUtilNew.getInstance(InterfaceInfo.DR_APPLY_NEW, peRegister);
         try {
-            ThirdPartRegRequest thirdPartRegRequest = new ThirdPartRegRequest();
-            // 取出字典中的医院id的对应的编码
-            List<DictModel> hospitalIds = sysDictService.getDictItems("hospital_id");
-            // 医院编码
-            thirdPartRegRequest.setHospitalId(Integer.parseInt(hospitalIds.get(0).getValue()));
-            // 身份证号
-            thirdPartRegRequest.setIdCard(peRegister.getPersonNo());
-            // 对方接口就诊卡号--体检号
-            thirdPartRegRequest.setPatCardNo(peRegister.getPatientNo());
-            // 婚姻状态
-            thirdPartRegRequest.setMaritalStatusName("已婚");
-            // 名称
-            thirdPartRegRequest.setName(peRegister.getPatientName());
-            // 民族
-            thirdPartRegRequest.setNationName("汉族");
-            // 年龄
-            thirdPartRegRequest.setPatAge(peRegister.getAge());
-            // 性别
-            thirdPartRegRequest.setSex(peRegister.getSex());
-            // 具体子项目
-            ThirdPartRegRequest.ProjectIdDTO projectIdDTO = new ThirdPartRegRequest.ProjectIdDTO();
-            // 实际价格
-            projectIdDTO.setAcPrice(new BigDecimal(55));
-            // 折扣
-            projectIdDTO.setDisc(new BigDecimal(100));
-            // 医嘱id
-            projectIdDTO.setOrderId("8020206121549432068");
-            // 医嘱名称
-            projectIdDTO.setOrderName("胸部正位拍片（胸部）");
-            // 标准价格
-            projectIdDTO.setStPrice(new BigDecimal(55));
-            List<ThirdPartRegRequest.ProjectIdDTO> projectIdDTOS = new ArrayList<>();
-            projectIdDTOS.add(projectIdDTO);
-            thirdPartRegRequest.setProjectIdList(projectIdDTOS);
-            thirdPartRegRequest.setOrderGreenChannel(1);
-            thirdPartRegRequest.setDepartment("DR");
-            thirdPartRegRequest.setVipFlag(1);
-            thirdPartRegRequest.setCompanyId(0);
-            thirdPartRegRequest.setCompanyGroupId(0);
-
-            Map<String, Object> stringObjectMap = convertToParamMap(thirdPartRegRequest);
+            PacsApplyRequestDTO pacsApplyRequestDTO = new PacsApplyRequestDTO();
+            pacsApplyRequestDTO.setPhysicalNo(peRegister.getPatientNo());
+            pacsApplyRequestDTO.setIdcardNo(peRegister.getPersonNo());
+            pacsApplyRequestDTO.setApplyTelephone(peRegister.getTelphone());
+            pacsApplyRequestDTO.setBillDocId(Long.valueOf(peRegister.getOperatorId())); // 医生id
+            // 根据人员id获取人员名称
+            AccUsers accUsersServiceOne = accUsersService.getOne(new LambdaQueryWrapper<AccUsers>().eq(AccUsers::getSerialNo, peRegister.getOperatorId()));
+            pacsApplyRequestDTO.setBillDocName(accUsersServiceOne.getUserName()); // 医生名称 通过accusers表进行查询
+            pacsApplyRequestDTO.setLabApplyDiagnose(StrUtil.isNotEmpty(peRegister.getChiefSumUp())?peRegister.getChiefSumUp():"XXXX");
+            pacsApplyRequestDTO.setPatAge(peRegister.getAge().toString());
+            pacsApplyRequestDTO.setPatCardNo(peRegister.getCardNo());
+            pacsApplyRequestDTO.setPatId(Long.valueOf(peRegister.getPatId()));
+            pacsApplyRequestDTO.setPatMedicalHistory("XXX");
+            pacsApplyRequestDTO.setPatName(peRegister.getPatientName());
+            pacsApplyRequestDTO.setReqTime(DateUtil.formatDateTime(new Date()));
+            pacsApplyRequestDTO.setSexId(peRegister.getSex().equals("男")?1:2);
+            pacsApplyRequestDTO.setSexName(peRegister.getSex());
+            pacsApplyRequestDTO.setBirthDay(DateUtil.formatDateTime(peRegister.getBirthday()));
+            List<ThirdApplyDetailDTO> applyList = new ArrayList<>();
+            ThirdApplyDetailDTO thirdApplyDetailDTO = new ThirdApplyDetailDTO();
+            thirdApplyDetailDTO.setMemo("无");
+            List<ThirdApplyDetailChargeDTO> chargeList = new ArrayList<>();
+            ThirdApplyDetailChargeDTO thirdApplyDetailChargeDTO = new ThirdApplyDetailChargeDTO();
+            chargeList.add(thirdApplyDetailChargeDTO);
+            thirdApplyDetailDTO.setThirdApplyDetailChargeDtoList(chargeList);
+            applyList.add(thirdApplyDetailDTO);
+            pacsApplyRequestDTO.setThirdApplyDetailDtoList(applyList); // 申请单明细列表
+            Map<String, Object> stringObjectMap = BeanUtil.beanToMap(pacsApplyRequestDTO);
             // 请求信息封装
             log.setSendMessage(JSONUtil.parse(stringObjectMap).toString());
             // 发送请求
-            String res = RequestUtil.go(InterfaceInfo.DR_APPLY.getUrl(), InterfaceInfo.DR_APPLY.getRequestType(), stringObjectMap, true);
+            String res = RequestUtil.go(InterfaceInfo.DR_APPLY_NEW.getUrl(), InterfaceInfo.DR_APPLY_NEW.getRequestType(), stringObjectMap, true);
             log.setReceiveMessage(res);
             // 判断
             if (!JSONUtil.isJson(res)) {
                 throw new RuntimeException("返回信息不是json！");
             }
             // 将返回的数据转换成为，接收类数据
-            DrApplyResponse response = JSONUtil.toBean(res, DrApplyResponse.class);
+            PacsApplyResponseDTO response = JSONUtil.toBean(res, PacsApplyResponseDTO.class);
             // 请求不成功
             if (!response.getSuccess()) {
                 throw new RuntimeException("DR申请提交失败！");
@@ -584,7 +576,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                 result = log.resultLog("DR申请提交成功！");
                 // 将流水号保存下来,保存的位置
                 // 流水号
-                peRegister.setDrPatientNo(response.getData().getSerialNo());
+                peRegister.setDrPatientNo(response.getData().get(0));
                 // 数据持久化
                 this.saveOrUpdate(peRegister);
             }
@@ -594,7 +586,6 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
             result = log.resultLog("报错：" + e.getMessage());
             resultAll.append("报错：" + e.getMessage());
         } finally {
-            log.success(true);
             // 保存日志
             log.saveLog();
         }
@@ -1176,17 +1167,17 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                     // 患者类型
                     DrBarSpacel.setPatType(patTypeGetName(peRegister.getPatType()));
                     // 条码号
-                    DrBarSpacel.setBarCode(peRegister.getDrPatientNo());
+                    DrBarSpacel.setBarCode(peRegister.getCardNo());
                     // 试管颜色
                     DrBarSpacel.setTubeColor("---");
                     // 项目编码
-                    DrBarSpacel.setLabItemName("DR");
+                    DrBarSpacel.setLabItemName("胸部正位拍片（胸部）");
                     // 项目名称
                     DrBarSpacel.setLabItemNo("胸部正位");
                     // 科室
                     DrBarSpacel.setDepartment("放射科");
                     // 样本类型名称
-                    DrBarSpacel.setSampleClassName("胸部正位拍片（胸部）");
+                    DrBarSpacel.setSampleClassName("DR");
                     resultList.add(DrBarSpacel);
                 }
                 // 查询该人的项目信息
