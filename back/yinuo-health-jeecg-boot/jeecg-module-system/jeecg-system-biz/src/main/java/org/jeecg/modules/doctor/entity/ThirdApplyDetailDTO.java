@@ -11,7 +11,7 @@ import java.util.List;
 @Data
 public class ThirdApplyDetailDTO {
     /** 检查部位名称（检查类），默认值：头发啊 */
-    private String bodypartName = "胸位" ;
+    private String bodypartName = "胸部正位拍片（胸部）" ;
 
     /** 执行科室id（由查询pacs执行科室获取），默认值：87 */
     private Long exeDeptId = 87L;

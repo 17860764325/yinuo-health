@@ -199,7 +199,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
                         // 将cardNo字段维护到 pe_regiter_list 表格中
                         peRegister.setCardNo(personSearchResponse.getData().getCardNo());
                         // 书写返回信息
-                        logUtil.logMessage(resultMessage, peRegister, logMessage, "获取 患者id(" + personSearchResponse.getData().getPatId() + ") 成功！");
+                        logUtil.logMessage(resultMessage, peRegister, logMessage, "获取 患者id(" + personSearchResponse.getData().getPatId() + personSearchResponse.getData().getCardNo() +") 成功！");
                         // 将更新的数据进行持久化
                         boolean b = this.saveOrUpdate(peRegister);
                         flag = b;
@@ -522,11 +522,13 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
      * @version 1.0
      */
     private void DrApply(LISApplyInfo lisApplyInfo, StringBuffer resultAll, PeRegisterList peRegister) {
+         personSearchOne(resultAll, peRegister);
         // 获去人员信息，组成请求体，进行发送
         StringBuffer result = null;
         // 创建日志记录
         LogUtilNew log = LogUtilNew.getInstance(InterfaceInfo.DR_APPLY_NEW, peRegister);
         try {
+            List<PacsApplyRequestDTO> sendData = new ArrayList<>();
             PacsApplyRequestDTO pacsApplyRequestDTO = new PacsApplyRequestDTO();
             pacsApplyRequestDTO.setPhysicalNo(peRegister.getPatientNo());
             pacsApplyRequestDTO.setIdcardNo(peRegister.getPersonNo());
@@ -554,11 +556,11 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
             thirdApplyDetailDTO.setThirdApplyDetailChargeDtoList(chargeList);
             applyList.add(thirdApplyDetailDTO);
             pacsApplyRequestDTO.setThirdApplyDetailDtoList(applyList); // 申请单明细列表
-            Map<String, Object> stringObjectMap = BeanUtil.beanToMap(pacsApplyRequestDTO);
-            // 请求信息封装
-            log.setSendMessage(JSONUtil.parse(stringObjectMap).toString());
-            // 发送请求
-            String res = RequestUtil.go(InterfaceInfo.DR_APPLY_NEW.getUrl(), InterfaceInfo.DR_APPLY_NEW.getRequestType(), stringObjectMap, true);
+            sendData.add(pacsApplyRequestDTO);
+            // 请求信息封装 - 直接使用 List 对象
+            log.setSendMessage(JSONUtil.toJsonStr(sendData));
+            // 发送请求 - 直接传递 List 对象
+            String res = RequestUtil.go(InterfaceInfo.DR_APPLY_NEW.getUrl(), InterfaceInfo.DR_APPLY_NEW.getRequestType(), sendData, true);
             log.setReceiveMessage(res);
             // 判断
             if (!JSONUtil.isJson(res)) {
@@ -1143,7 +1145,7 @@ public class PeRegisterListServiceImpl extends ServiceImpl<PeRegisterListMapper,
     @Override
     public Result<List<List<BarCodePerintVo>>> barCodePrintGetData(List<String> ids) {
         // 总返回信息
-        List<List<BarCodePerintVo>> resultAll = new ArrayList<>();
+         List<List<BarCodePerintVo>> resultAll = new ArrayList<>();
         // 根据传的patientNo 查询相关的人员信息
         List<PeRegisterList> peRegisterLists = this.listByIds(ids);
         for (PeRegisterList peRegister : peRegisterLists) {

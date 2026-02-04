@@ -72,6 +72,23 @@ public class RequestUtil {
     }
 
     /**
+     * @description: 重载方法，支持List类型参数，最后添加了一个是否需要登录用户
+     * @author lhr
+     * @date 2026/1/25
+     * @version 1.0
+     */
+    public static String go(String url, String requestType, List<?> paramsList, boolean needLoginUser) throws Exception{
+        String message = "";
+        if (requestType.equals(GET)){
+            // GET请求不支持List参数，抛出异常
+            throw new IllegalArgumentException("GET request does not support List parameters");
+        }else {
+            message = post(IP + url, paramsList, needLoginUser);
+        }
+        return message;
+    }
+
+    /**
      * POST请求
      *
      * @param url       请求接口地址
@@ -102,6 +119,54 @@ public class RequestUtil {
 
         // 构建请求头
         Map<String, String> headers = builderHeaders(sign, timestamp,needLoginUser);
+
+        // 构建请求，可以用RestTemplate、HttpClient、  WebFlux等工具类，具体看自身项目工具类使用，不做限制
+        HttpRequest postHttpReq = HttpUtil.createPost(url);
+        // 加入定义的请求头
+        postHttpReq.addHeaders(headers);
+        // 加入请求参数，转换成JSON后的
+        postHttpReq.body(paramsJsonStr);
+        // 超时时间 10s
+        postHttpReq.setConnectionTimeout(TIMEOUT);
+        // 发起请求
+        HttpResponse response = postHttpReq.execute();
+        // 返回结果body
+        String body = response.body();
+        return body;
+    }
+
+    /**
+     * POST请求（支持List参数）
+     *
+     * @param url           请求接口地址
+     * @param paramsList    请求参数List，可以为空
+     * @param needLoginUser 是否需要登录用户
+     * @return
+     * @throws Exception
+     */
+    public static String post(String url, List<?> paramsList, boolean needLoginUser) throws Exception {
+        // 参数不为空，转换成标准JSON字符串
+        String paramsJsonStr = "";
+        if (CollectionUtil.isNotEmpty(paramsList)) {
+            paramsJsonStr = JSON.toJSONString(paramsList);
+        }
+
+        System.out.println(paramsJsonStr);
+        // 当前时间戳，与header头中的timestamp一致
+        long timestamp = System.currentTimeMillis();
+
+        // 待MD5加密字符串 = 请求字符串 + 当前时间戳
+        String signatureStr = paramsJsonStr + timestamp;
+
+        // MD5进行摘要加密
+        MessageDigest md = MessageDigest.getInstance("MD5");
+        String md5Str = Hex.encodeHexString(md.digest(signatureStr.getBytes(StandardCharsets.UTF_8)));
+
+        // 根据MD5摘要进行签名
+        String sign = getSign(md5Str, APP_SECRET);
+
+        // 构建请求头
+        Map<String, String> headers = builderHeaders(sign, timestamp, needLoginUser);
 
         // 构建请求，可以用RestTemplate、HttpClient、  WebFlux等工具类，具体看自身项目工具类使用，不做限制
         HttpRequest postHttpReq = HttpUtil.createPost(url);

@@ -96,25 +96,61 @@ public class IDrServiceimpl implements IDrService {
             byte[] byteData = null;
             System.err.print("血循环早符合逻辑dr");
             System.err.print("获取的data数据" + response.getData());
-            List<PacsReportDetailDTO> resposeDetail = new ArrayList<>();
+            
+            // 从response中获取报告详情列表
+            List<PacsReportDetailDTO> resposeDetail = response.getData();
+            
             if (CollUtil.isNotEmpty(resposeDetail)) {
-                byteData = pdfToImageService.convertPdfFirstPageToImage(resposeDetail.get(0).getReportPdfPath());
+                log.log("获取的报告数量=" + resposeDetail.size() + "|第一条pdfurl=" + resposeDetail.get(0).getReportPdfPath());
+                // 转换PDF为图片
+                String pdfUrl = resposeDetail.get(0).getReportPdfPath();
+                if (StrUtil.isNotBlank(pdfUrl)) {
+                    byteData = pdfToImageService.convertPdfFirstPageToImage(pdfUrl);
+                    log.log("PDF转换完成，图片大小=" + (byteData != null ? byteData.length + " bytes" : "null"));
+                } else {
+                    log.log("PDF路径为空，无法转换");
+                }
+            } else {
+                log.log("响应数据中没有报告详情，resposeDetail为空");
             }
-            log.log("返回的pdf转换后的二进制结果" + Arrays.toString(byteData));
+            
+            log.log("返回的pdf转换后的二进制结果" + (byteData != null ? byteData.length + " bytes" : "null"));
             log.success(response.getSuccess());
+            
             // 获取Dr存储表并进行图片存储
-            List<PeReportDepartmentImages> list = peReportDepartmentImagesService.list(new LambdaQueryWrapper<PeReportDepartmentImages>().eq(PeReportDepartmentImages::getPatientNo, peRegisterList.getPatientNo()).eq(PeReportDepartmentImages::getDepartmentId, 10));
-            // 不是盲目的叠加，二是替换之前的图片。
-            PeReportDepartmentImages peReportDepartmentImages = new PeReportDepartmentImages();
+            // 查询条件：patientNo + departmentId + imageIndex 唯一确定一条记录
+            LambdaQueryWrapper<PeReportDepartmentImages> queryWrapper = new LambdaQueryWrapper<PeReportDepartmentImages>()
+                .eq(PeReportDepartmentImages::getPatientNo, peRegisterList.getPatientNo())
+                .eq(PeReportDepartmentImages::getDepartmentId, 10)
+                .eq(PeReportDepartmentImages::getImageIndex, 1);
+            
+            List<PeReportDepartmentImages> list = peReportDepartmentImagesService.list(queryWrapper);
+            
+            // 不是盲目的叠加，而是替换之前的图片
             if (CollUtil.isNotEmpty(list)) {
-                peReportDepartmentImages = list.get(0);
+                // 记录已存在，先删除旧记录
+                log.log("找到已存在的图片记录，数量=" + list.size() + "，将先删除后新增");
+                peReportDepartmentImagesService.remove(queryWrapper);
+            } else {
+                log.log("未找到图片记录，将新增");
             }
+            
+            // 创建新记录并保存
+            PeReportDepartmentImages peReportDepartmentImages = new PeReportDepartmentImages();
             peReportDepartmentImages.setPatientNo(peRegisterList.getPatientNo());
             peReportDepartmentImages.setImageIndex(1);
             peReportDepartmentImages.setImageData(byteData);
             peReportDepartmentImages.setDepartmentId(10);
-            log.log("pat" + peReportDepartmentImages.getPatientNo() + "imgindex" + peReportDepartmentImages.getImageIndex() + "imgdata" + peReportDepartmentImages.getBaseSixFour());
-            peReportDepartmentImagesService.saveOrUpdate(peReportDepartmentImages);
+            peReportDepartmentImages.setOperateDate(new Date());
+            
+            log.log("pat=" + peReportDepartmentImages.getPatientNo() 
+                + "|imgindex=" + peReportDepartmentImages.getImageIndex() 
+                + "|imgdata=" + (byteData != null ? byteData.length + " bytes" : "null")
+                + "|departmentId=" + peReportDepartmentImages.getDepartmentId());
+            
+            // 执行保存
+            boolean saveResult = peReportDepartmentImagesService.save(peReportDepartmentImages);
+            log.log("保存图片记录" + (saveResult ? "成功" : "失败"));
             for (PeReportDepartmentDetail peReportDepartmentDetail : collect) {
                 if (peReportDepartmentDetail.getItemNo().equals("LNCT8200")) {
                     // 结论
